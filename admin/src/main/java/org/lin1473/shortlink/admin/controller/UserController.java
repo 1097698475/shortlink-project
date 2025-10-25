@@ -1,8 +1,10 @@
 package org.lin1473.shortlink.admin.controller;
 
+import cn.hutool.core.bean.BeanUtil;
 import lombok.RequiredArgsConstructor;
 import org.lin1473.shortlink.admin.common.convention.result.Result;
 import org.lin1473.shortlink.admin.common.convention.result.Results;
+import org.lin1473.shortlink.admin.dto.resp.UserActualRespDTO;
 import org.lin1473.shortlink.admin.dto.resp.UserRespDTO;
 import org.lin1473.shortlink.admin.service.UserService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,11 +28,13 @@ public class UserController {
     @GetMapping("/api/shortlink/v1/user/{username}")
     public Result<UserRespDTO> getUserByUsername(@PathVariable String username) {
         return Results.success(userService.getUserByUsername(username));
-//        if (result == null) {
-//            return new Result<UserRespDTO>().setCode(UserErrorCodeEnum.USER_NULL.code()).setMessage(UserErrorCodeEnum.USER_NULL.message());
-//        } else {
-////            return new Result<UserRespDTO>().setCode("0").setData(result);
-//            return Results.success(result);
-//        }
+    }
+
+    /**
+     * 根据用户名查询用户无脱敏信息
+     */
+    @GetMapping("/api/shortlink/v1/actual/user/{username}")
+    public Result<UserActualRespDTO> getActualUserByUsername(@PathVariable String username) {
+        return Results.success(BeanUtil.toBean(userService.getUserByUsername(username), UserActualRespDTO.class));
     }
 }
