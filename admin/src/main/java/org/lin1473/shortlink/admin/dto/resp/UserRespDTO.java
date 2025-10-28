@@ -6,7 +6,7 @@ import org.lin1473.shortlink.admin.common.serialize.PhoneDesensitizationSerializ
 
 
 /**
- * 用户返回参数响应
+ * 用户返回参数响应-脱敏
  */
 @Data
 public class UserRespDTO {

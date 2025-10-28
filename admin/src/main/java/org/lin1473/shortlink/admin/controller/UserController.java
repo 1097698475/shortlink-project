@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.lin1473.shortlink.admin.common.convention.result.Result;
 import org.lin1473.shortlink.admin.common.convention.result.Results;
 import org.lin1473.shortlink.admin.dto.req.UserRegisterReqDTO;
+import org.lin1473.shortlink.admin.dto.req.UserUpdateReqDTO;
 import org.lin1473.shortlink.admin.dto.resp.UserActualRespDTO;
 import org.lin1473.shortlink.admin.dto.resp.UserRespDTO;
 import org.lin1473.shortlink.admin.service.UserService;
@@ -45,10 +46,30 @@ public class UserController {
         return Results.success(userService.availableUsername(username));
     }
 
+    /**
+     * 注册用户
+     */
     @PostMapping("/api/short-link/v1/user")
     public Result<Void> register(@RequestBody UserRegisterReqDTO requestParam) {
         userService.register(requestParam);
         return Results.success();
     }
+
+    /**
+     * 修改用户
+     */
+    @PutMapping("/api/short-link/v1/user")
+    public Result<Void> update(@RequestBody UserUpdateReqDTO requestParam) {
+        userService.update(requestParam);
+        return Results.success();
+    }
+
+    /**
+     * 登录用户
+     */
+//    public Result<UserLoginRespDTO> login(@RequestBody UserLoginReqDTO requestParam) {
+//        userService.login(requestParam);
+//        return Results.success(null);
+//    }
 
 }
