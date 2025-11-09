@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * 短链接分组接口实现层
+ *
  */
 @Slf4j
 @Service
@@ -25,6 +26,7 @@ public class GroupServiceImpl extends ServiceImpl<GroupMapper, GroupDO> implemen
         } while (!hasGid(gid));
         GroupDO groupDO = GroupDO.builder()
                 .gid(gid)
+                .sortOrder(0)
                 .name(groupName)
                 .build();
         baseMapper.insert(groupDO);
@@ -32,7 +34,6 @@ public class GroupServiceImpl extends ServiceImpl<GroupMapper, GroupDO> implemen
 
     private boolean hasGid(String gid) {
         LambdaQueryWrapper<GroupDO> queryWrapper = Wrappers.lambdaQuery(GroupDO.class)
-                .eq(GroupDO::getDelFlag, 0)
                 .eq(GroupDO::getGid, gid)
                 // TODO 设置用户名，网关传入
                 .eq(GroupDO::getUsername, null);
