@@ -97,7 +97,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
                 .eq(UserDO::getDelFlag, 0);
         UserDO userDO = baseMapper.selectOne(queryWrapper);
         if (userDO == null) {
-            throw new ClientException("用户不存在");     // 返回一个基本的ErrorCode: CLIENT_ERROR
+            throw new ClientException("用户不存在");     // 返回一个基本的ErrorCode: CLIENT_ERROR，密码错误也返回这个
         }
         Boolean hasLogin = stringRedisTemplate.hasKey("login_" + requestParam.getUsername());
         if (hasLogin != null && hasLogin) {
