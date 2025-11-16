@@ -51,9 +51,6 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         try {
             baseMapper.insert(shortLinkDO);
         } catch (DuplicateKeyException ex) {
-            // TODO 已经误判的短链接如何处理（短链接生成重复了怎么办）
-            // 第一种，短链接确实真实存在缓存中
-            // 第二种，短链接不一定存在缓存中
             LambdaQueryWrapper<ShortLinkDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkDO.class)
                     .eq(ShortLinkDO::getShortUri, fullShortUrl);
             ShortLinkDO hasShortLinkDO = baseMapper.selectOne(queryWrapper);
