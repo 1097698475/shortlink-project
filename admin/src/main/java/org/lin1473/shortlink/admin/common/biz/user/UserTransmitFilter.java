@@ -44,8 +44,8 @@ public class UserTransmitFilter implements Filter {
             if (!(Objects.equals(requestURI, "/api/short-link/admin/v1/user") && Objects.equals(method, "POST"))) {
                 String username = httpServletRequest.getHeader("username");
                 String token = httpServletRequest.getHeader("token");
-                // 如果有一个为空，抛异常
-                if(!StrUtil.isAllBlank(username, token)) {
+                // 如果有一个为空，抛异常。都不为空取反==至少有一个为空
+                if(!StrUtil.isAllNotBlank(username, token)) {
                     returnJson((HttpServletResponse) servletResponse, JSON.toJSONString(Results.failure(new ClientException(USER_TOKEN_FAIL))));
                     return;
                 }
