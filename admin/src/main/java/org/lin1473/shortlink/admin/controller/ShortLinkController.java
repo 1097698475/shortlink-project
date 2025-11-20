@@ -3,7 +3,7 @@ package org.lin1473.shortlink.admin.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import org.lin1473.shortlink.admin.common.convention.result.Result;
-import org.lin1473.shortlink.admin.remote.dto.ShortLinkRemoteService;
+import org.lin1473.shortlink.admin.remote.ShortLinkRemoteService;
 import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkCreateReqDTO;
 import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkPageReqDTO;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkCreateRespDTO;
