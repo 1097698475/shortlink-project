@@ -17,6 +17,7 @@ import org.lin1473.shortlink.admin.dto.req.UserRegisterReqDTO;
 import org.lin1473.shortlink.admin.dto.req.UserUpdateReqDTO;
 import org.lin1473.shortlink.admin.dto.resp.UserLoginRespDTO;
 import org.lin1473.shortlink.admin.dto.resp.UserRespDTO;
+import org.lin1473.shortlink.admin.service.GroupService;
 import org.lin1473.shortlink.admin.service.UserService;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RLock;
@@ -41,6 +42,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
     private final RBloomFilter<String> userRegisterCachePenetrationBloomFilter;
     private final RedissonClient redissonClient;
     private final StringRedisTemplate stringRedisTemplate;
+    private final GroupService groupService;
 
     @Override
     public UserRespDTO getUserByUsername(String username) {
@@ -77,6 +79,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, UserDO> implements 
                     throw new ClientException(USER_EXIST);
                 }
                 userRegisterCachePenetrationBloomFilter.add(requestParam.getUsername());
+                groupService.saveGroup(requestParam.getUsername(), "默认分组"); //用户注册自动创建一个分组
                 return;
             }
             throw new ClientException(USER_NAME_EXIST);
