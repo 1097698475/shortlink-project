@@ -1,4 +1,4 @@
-package org.lin1473.shortlink.admin.remote.dto;
+package org.lin1473.shortlink.admin.remote;
 
 import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson2.JSON;
