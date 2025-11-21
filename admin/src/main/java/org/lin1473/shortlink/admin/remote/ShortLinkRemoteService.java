@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import org.lin1473.shortlink.admin.common.convention.result.Result;
 import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkCreateReqDTO;
 import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkPageReqDTO;
+import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkUpdateReqDTO;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkCreateRespDTO;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkGroupCountQueryRespDTO;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
@@ -31,6 +32,16 @@ public interface ShortLinkRemoteService {
         String resultBodyStr = HttpUtil.post("http://127.0.0.1:8001/api/short-link/v1/create", JSON.toJSONString(requestParam));
         return JSON.parseObject(resultBodyStr, new TypeReference<>() {
         });
+    }
+
+    /**
+     * 修改短链接
+     *
+     * @param requestParam 修改短链接请求参数
+     */
+    default void updateShortLink(ShortLinkUpdateReqDTO requestParam) {
+        // 使用post方法调用短链接中心的接口（8001是中心，8002是后管），接口的响应DTO返回为String格式的json
+        HttpUtil.post("http://127.0.0.1:8001/api/short-link/v1/update", JSON.toJSONString(requestParam));
     }
 
     /**
@@ -67,5 +78,4 @@ public interface ShortLinkRemoteService {
         return JSON.parseObject(resultPageStr, new TypeReference<>() {
         });
     }
-
 }
