@@ -17,12 +17,17 @@ public class ShortLinkUpdateReqDTO {
     private String originUrl;
 
     /**
-     * 完整短链接
+     * 完整短链接，这个应该是不能修改的
      */
     private String fullShortUrl;
 
     /**
-     * 分组标识
+     * 原始分组标识
+     */
+    private String originGid;
+
+    /**
+     * 修改后分组标识
      */
     private String gid;
 
