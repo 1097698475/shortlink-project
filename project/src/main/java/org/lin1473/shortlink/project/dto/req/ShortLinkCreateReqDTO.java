@@ -13,6 +13,7 @@ public class ShortLinkCreateReqDTO {
 
     /**
      * 域名
+     * 不用写协议前缀http://
      */
     private String domain;
 
