@@ -41,9 +41,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
-import static org.lin1473.shortlink.project.common.constant.RedisKeyConstant.GOTO_SHORT_LINK_KEY;
-import static org.lin1473.shortlink.project.common.constant.RedisKeyConstant.LOCK_GOTO_SHORT_LINK_KEY;
+import static org.lin1473.shortlink.project.common.constant.RedisKeyConstant.*;
 
 /**
  * 短链接接口实现层
@@ -205,14 +205,25 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         String serverName = request.getServerName();    // 得到http://nurl.ink 相当于域名
         String fullShortUrl = serverName + "/" + shortUri;  // 和短链接uri拼接
 
-        // 根据key查找redis对应的原始网址，如果查得到就不用查数据库
+        // 根据key查找redis对应的原始网址，如果查得到就不用查数据库。String.format就是将它们拼接起来
         String originalLink = stringRedisTemplate.opsForValue().get(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl));
         if (StrUtil.isNotBlank(originalLink)) {
             ((HttpServletResponse) response).sendRedirect(originalLink);
             return;
         }
 
-        // 查不到redis，直接查数据库，避免缓存击穿（大量请求打到数据库），设置分布式锁
+        // 缓存查不到。先查询布隆过滤器，如果不存在直接返回，如果存在，需要处理误判的情况：
+        // 查询当前短链接是否在Redis有空值标记（不是真的空值，而是一个key标记），如果有空值标记说明数据库不存在原始链接（当前的请求是恶意请求），如果没有标记则查询数据库接下面操作。（查询数据库如果不存在，则缓存空值标记）
+        boolean contains = shortUriCreateCachePenetrationBloomFilter.contains(fullShortUrl);
+        if (!contains) {
+            return;
+        }
+        String gotoIsNullShortLink = stringRedisTemplate.opsForValue().get(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, fullShortUrl));
+        if (StrUtil.isNotBlank(gotoIsNullShortLink)) {
+            return;
+        }
+
+        // 查不到redis，直接查数据库，避免缓存击穿（大量请求打到数据库），需要设置分布式锁
         RLock lock = redissonClient.getLock(String.format(LOCK_GOTO_SHORT_LINK_KEY, fullShortUrl));
         lock.lock();
         try {   // 为什么要try？因为代码中都可能会抛异常（如.opsForValue().set(...)， baseMapper.selectOne），一旦抛异常，如果不用try finally，就不会执行unlock，死锁
@@ -229,6 +240,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             ShortLinkGotoDO shortLinkGotoDO = shortLinkGotoMapper.selectOne(linkGotoQueryWrapper);
             if (shortLinkGotoDO == null) {
                 // 严谨来说此处需要进行封控
+                // 查询数据库如果不存在，则缓存空值标记，下次这样的请求就直接在redis判断空标记，返回，而不用查数据库
+                stringRedisTemplate.opsForValue().set(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, fullShortUrl), "-", 30, TimeUnit.MINUTES);
                 return;
             }
 
