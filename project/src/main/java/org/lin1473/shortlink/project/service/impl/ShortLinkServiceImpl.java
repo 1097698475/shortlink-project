@@ -210,6 +210,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     @SneakyThrows
     @Override
     public void restoreUrl(String shortUri, ServletRequest request, ServletResponse response) {
+        // 测试用的：在浏览器输入nurl.ink:8001/1NJnCN， 就会跳转到nageoffer.com，nurl.ink:8001/1NJnCN会被解析成127.0.0.1:8001/1NJnCN，就是后管dev环境了
         String serverName = request.getServerName();    // 得到http://nurl.ink 相当于域名
         String fullShortUrl = serverName + "/" + shortUri;  // 和短链接uri拼接
 
@@ -220,14 +221,16 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             return;
         }
 
-        // 缓存查不到。先查询布隆过滤器，如果不存在直接返回，如果存在，需要处理误判的情况：
-        // 查询当前短链接是否在Redis有空值标记（不是真的空值，而是一个key标记），如果有空值标记说明数据库不存在原始链接（当前的请求是恶意请求），如果没有标记则查询数据库接下面操作。（查询数据库如果不存在，则缓存空值标记）
+        // 缓存查不到。先查询布隆过滤器，如果不存在直接返回404页面，如果存在，需要处理误判的情况：
+        // 查询当前短链接是否在Redis有空值标记（不是真的空值，而是一个key标记），如果有空值标记说明数据库不存在原始链接（当前的请求是恶意请求），返回404页面；如果没有标记则查询数据库接下面操作。（查询数据库如果不存在，则缓存空值标记）
         boolean contains = shortUriCreateCachePenetrationBloomFilter.contains(fullShortUrl);
         if (!contains) {
+            ((HttpServletResponse) response).sendRedirect("/page/notfound");    // 本质是跳转到127.0.0.1:8001/page/notfound
             return;
         }
         String gotoIsNullShortLink = stringRedisTemplate.opsForValue().get(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, fullShortUrl));
         if (StrUtil.isNotBlank(gotoIsNullShortLink)) {
+            ((HttpServletResponse) response).sendRedirect("/page/notfound");    // 本质是跳转到127.0.0.1:8001/page/notfound
             return;
         }
 
@@ -248,8 +251,9 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             ShortLinkGotoDO shortLinkGotoDO = shortLinkGotoMapper.selectOne(linkGotoQueryWrapper);
             if (shortLinkGotoDO == null) {
                 // 严谨来说此处需要进行封控
-                // 查询数据库如果不存在，则缓存空值标记，下次这样的请求就直接在redis判断空标记，返回，而不用查数据库
+                // 查询数据库如果不存在，则缓存空值标记，返回404页面。下次这样的请求就直接在redis判断空标记，返回，而不用查数据库，避免大量恶意请求穿透数据库
                 stringRedisTemplate.opsForValue().set(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, fullShortUrl), "-", 30, TimeUnit.MINUTES);
+                ((HttpServletResponse) response).sendRedirect("/page/notfound");    // 本质是跳转到127.0.0.1:8001/page/notfound
                 return;
             }
 
@@ -263,9 +267,10 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
 
             if (shortLinkDO != null) {
                 // 将数据库查到的记录写入redis
-                // 先判断是否过期，如果过期就空值标记，不过期再添加原始链接到redis
+                // 先判断是否过期，如果过期就空值标记，返回404页面，不过期再添加原始链接到redis
                 if (shortLinkDO.getValidDate() != null && shortLinkDO.getValidDate().before(new Date())) {
                     stringRedisTemplate.opsForValue().set(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, fullShortUrl), "-", 30, TimeUnit.MINUTES);
+                    ((HttpServletResponse) response).sendRedirect("/page/notfound");    // 本质是跳转到127.0.0.1:8001/page/notfound
                     return;
                 }
                 stringRedisTemplate.opsForValue().set(
