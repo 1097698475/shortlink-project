@@ -30,6 +30,7 @@ import org.lin1473.shortlink.project.dto.resp.ShortLinkGroupCountQueryRespDTO;
 import org.lin1473.shortlink.project.dto.resp.ShortLinkPageRespDTO;
 import org.lin1473.shortlink.project.service.ShortLinkService;
 import org.lin1473.shortlink.project.toolkit.HashUtil;
+import org.lin1473.shortlink.project.toolkit.LinkUtil;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -95,6 +96,12 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 throw new ServiceException("短链接生成重复");
             }
         }
+        // 缓存预热 key value timeout
+        stringRedisTemplate.opsForValue().set(
+                String.format(GOTO_SHORT_LINK_KEY, fullShortUrl),
+                requestParam.getOriginUrl(),
+                LinkUtil.getLinkCacheValidTime(requestParam.getValidDate()), TimeUnit.MILLISECONDS
+                );
         shortUriCreateCachePenetrationBloomFilter.add(fullShortUrl);
         // 链式创建
         ShortLinkCreateRespDTO shortLinkCreateRespDTO = ShortLinkCreateRespDTO.builder()
