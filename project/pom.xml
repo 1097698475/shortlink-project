@@ -63,6 +63,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>${jsoup.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.lin1473.shortlink</groupId>
             <artifactId>shortlink-admin</artifactId>
             <version>1.0-SNAPSHOT</version>
