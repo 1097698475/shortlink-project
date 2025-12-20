@@ -101,4 +101,22 @@ public interface ShortLinkRemoteService {
         // 使用post方法调用短链接中心的接口（8001是中心，8002是后管），接口的响应DTO返回为String格式的json
         HttpUtil.post("http://127.0.0.1:8001/api/short-link/v1/recycle-bin/save", JSON.toJSONString(requestParam));
     }
+
+    /**
+     * 分页查询回收站短链接
+     *
+     * @param requestParam 分页短链接请求参数
+     * @return 查询短链接响应
+     */
+    default Result<IPage<ShortLinkPageRespDTO>> pageRecycleBinShortLinks(ShortLinkPageReqDTO requestParam) {
+        //Get http方法，param有三个参数，用map拼接
+        Map<String, Object> requestMap = new HashMap<>();
+        requestMap.put("gid", requestParam.getGid());
+        requestMap.put("current", requestParam.getCurrent());
+        requestMap.put("size", requestParam.getSize());
+        // 使用get方法调用短链接中心的接口（8001是中心，8002是后管），接口的响应DTO返回为String格式的json
+        String resultPageStr = HttpUtil.get("http://127.0.0.1:8001/api/short-link/v1/recycle-bin/page", requestMap);
+        return JSON.parseObject(resultPageStr, new TypeReference<>() {
+        });
+    }
 }
