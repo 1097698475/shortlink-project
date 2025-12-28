@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.lin1473.shortlink.project.dao.entity.ShortLinkDO;
 import org.lin1473.shortlink.project.dao.mapper.ShortLinkMapper;
 import org.lin1473.shortlink.project.dto.req.RecycleBinRecoverReqDTO;
+import org.lin1473.shortlink.project.dto.req.RecycleBinRemoveReqDTO;
 import org.lin1473.shortlink.project.dto.req.RecycleBinSaveReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkRecycleBinPageReqDTO;
 import org.lin1473.shortlink.project.dto.resp.ShortLinkPageRespDTO;
@@ -81,6 +82,17 @@ public class RecycleBinServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLin
         // 2. 删除掉空值跳转前缀，这是因为预防缓存穿透(redis查不到，进而查询数据库，
         // 我们不希望数据库访问压力大），我们对访问不生效（enableStatus=1，或者数据库根本就没有该短链接）的短链接做了空值跳转+跳转锁。
         stringRedisTemplate.delete(String.format(GOTO_IS_NULL_SHORT_LINK_KEY, requestParam.getFullShortUrl()));
+    }
+
+    @Override
+    public void removeRecycleBin(RecycleBinRemoveReqDTO requestParam) {
+        // where条件
+        LambdaUpdateWrapper<ShortLinkDO> updateWrapper = Wrappers.lambdaUpdate(ShortLinkDO.class)
+                .eq(ShortLinkDO::getGid, requestParam.getGid())
+                .eq(ShortLinkDO::getFullShortUrl, requestParam.getFullShortUrl())
+                .eq(ShortLinkDO::getEnableStatus, 1)    // 查询删除的短链接
+                .eq(ShortLinkDO::getDelFlag, 0);
+        baseMapper.delete(updateWrapper);
     }
 
 }
