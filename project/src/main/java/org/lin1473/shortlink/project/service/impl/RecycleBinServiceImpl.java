@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.lin1473.shortlink.project.dao.entity.ShortLinkDO;
 import org.lin1473.shortlink.project.dao.mapper.ShortLinkMapper;
 import org.lin1473.shortlink.project.dto.req.RecycleBinSaveReqDTO;
-import org.lin1473.shortlink.project.dto.req.ShortLinkPageReqDTO;
+import org.lin1473.shortlink.project.dto.req.ShortLinkRecycleBinPageReqDTO;
 import org.lin1473.shortlink.project.dto.resp.ShortLinkPageRespDTO;
 import org.lin1473.shortlink.project.service.RecycleBinService;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -47,12 +47,12 @@ public class RecycleBinServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLin
     }
 
     @Override
-    public IPage<ShortLinkPageRespDTO> pageShortLink(ShortLinkPageReqDTO requestParam) {
+    public IPage<ShortLinkPageRespDTO> pageShortLink(ShortLinkRecycleBinPageReqDTO requestParam) {
         LambdaQueryWrapper<ShortLinkDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkDO.class)
-                .eq(ShortLinkDO::getGid, requestParam.getGid())
-                .eq(ShortLinkDO::getEnableStatus, 0)
+                .in(ShortLinkDO::getGid, requestParam.getGidList())     // 不是eq，而是in
+                .eq(ShortLinkDO::getEnableStatus, 1)
                 .eq(ShortLinkDO::getDelFlag, 0)
-                .orderByDesc(ShortLinkDO::getCreateTime);
+                .orderByDesc(ShortLinkDO::getUpdateTime);
         IPage<ShortLinkDO> resultPage = baseMapper.selectPage(requestParam, queryWrapper);
         return resultPage.convert(each -> {
             ShortLinkPageRespDTO result = BeanUtil.toBean(each, ShortLinkPageRespDTO.class);    // 查询到的该分组标识gid下的t_link记录

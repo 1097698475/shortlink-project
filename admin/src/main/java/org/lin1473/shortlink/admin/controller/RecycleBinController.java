@@ -7,8 +7,9 @@ import org.lin1473.shortlink.admin.common.convention.result.Result;
 import org.lin1473.shortlink.admin.common.convention.result.Results;
 import org.lin1473.shortlink.admin.remote.ShortLinkRemoteService;
 import org.lin1473.shortlink.admin.remote.dto.req.RecycleBinSaveReqDTO;
-import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkPageReqDTO;
+import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkRecycleBinPageReqDTO;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
+import org.lin1473.shortlink.admin.service.RecycleBinService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,6 +21,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 public class RecycleBinController {
+
+    // admin后管模块的Service，
+    private final RecycleBinService recycleBinService;
 
     /**
      * TODO 后续重构为 SpringCloud Feign 调用
@@ -40,7 +44,7 @@ public class RecycleBinController {
      * 分页查询回收站短链接
      */
     @GetMapping("/api/short-link/admin/v1/recycle-bin/page")
-    public Result<IPage<ShortLinkPageRespDTO>> pageShortLinks(ShortLinkPageReqDTO requestParam) {
-        return shortLinkRemoteService.pageRecycleBinShortLinks(requestParam);
+    public Result<IPage<ShortLinkPageRespDTO>> pageShortLinks(ShortLinkRecycleBinPageReqDTO requestParam) {
+        return recycleBinService.pageRecycleBinShortLinks(requestParam);
     }
 }

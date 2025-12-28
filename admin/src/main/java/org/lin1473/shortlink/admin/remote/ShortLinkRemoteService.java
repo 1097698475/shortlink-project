@@ -5,10 +5,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.TypeReference;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import org.lin1473.shortlink.admin.common.convention.result.Result;
-import org.lin1473.shortlink.admin.remote.dto.req.RecycleBinSaveReqDTO;
-import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkCreateReqDTO;
-import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkPageReqDTO;
-import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkUpdateReqDTO;
+import org.lin1473.shortlink.admin.remote.dto.req.*;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkCreateRespDTO;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkGroupCountQueryRespDTO;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
@@ -108,10 +105,12 @@ public interface ShortLinkRemoteService {
      * @param requestParam 分页短链接请求参数
      * @return 查询短链接响应
      */
-    default Result<IPage<ShortLinkPageRespDTO>> pageRecycleBinShortLinks(ShortLinkPageReqDTO requestParam) {
+    default Result<IPage<ShortLinkPageRespDTO>> pageRecycleBinShortLinks(ShortLinkRecycleBinPageReqDTO requestParam) {
         //Get http方法，param有三个参数，用map拼接
         Map<String, Object> requestMap = new HashMap<>();
-        requestMap.put("gid", requestParam.getGid());
+        // 不是传入一个gid，而是传入当前用户的所有gid（这里不同于短链接分页查询）
+//        requestMap.put("gid", requestParam.getGid());
+        requestMap.put("gidList", requestParam.getGidList());
         requestMap.put("current", requestParam.getCurrent());
         requestMap.put("size", requestParam.getSize());
         // 使用get方法调用短链接中心的接口（8001是中心，8002是后管），接口的响应DTO返回为String格式的json

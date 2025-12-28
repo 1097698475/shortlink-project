@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.lin1473.shortlink.project.dao.entity.ShortLinkDO;
 import org.lin1473.shortlink.project.dto.req.RecycleBinSaveReqDTO;
-import org.lin1473.shortlink.project.dto.req.ShortLinkPageReqDTO;
+import org.lin1473.shortlink.project.dto.req.ShortLinkRecycleBinPageReqDTO;
 import org.lin1473.shortlink.project.dto.resp.ShortLinkPageRespDTO;
 
 /**
@@ -22,8 +22,8 @@ public interface RecycleBinService extends IService<ShortLinkDO> {
     /**
      * 分页查询回收站的短链接
      *
-     * @param requestParam 分页查询短链接请求参数
+     * @param requestParam 分页查询短链接请求参数，是当前用户的gidList，而不是单独一个gid
      * @return 短链接分页返回结果
      */
-    IPage<ShortLinkPageRespDTO> pageShortLink(ShortLinkPageReqDTO requestParam);
+    IPage<ShortLinkPageRespDTO> pageShortLink(ShortLinkRecycleBinPageReqDTO requestParam);
 }
