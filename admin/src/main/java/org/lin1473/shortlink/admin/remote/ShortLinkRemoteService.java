@@ -118,4 +118,14 @@ public interface ShortLinkRemoteService {
         return JSON.parseObject(resultPageStr, new TypeReference<>() {
         });
     }
+
+    /**
+     * 恢复短链接
+     *
+     * @param requestParam 请求参数
+     */
+    default void recoverReycleBin(RecycleBinRecoverReqDTO requestParam) {
+        // 使用post方法调用短链接中心的接口（8001是中心，8002是后管），接口的响应DTO返回为String格式的json
+        HttpUtil.post("http://127.0.0.1:8001/api/short-link/v1/recycle-bin/recover", JSON.toJSONString(requestParam));
+    }
 }
