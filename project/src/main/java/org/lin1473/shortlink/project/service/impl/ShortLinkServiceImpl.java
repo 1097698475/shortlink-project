@@ -3,7 +3,9 @@ package org.lin1473.shortlink.project.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.date.Week;
+import cn.hutool.core.lang.UUID;
 import cn.hutool.core.text.StrBuilder;
+import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -13,6 +15,8 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -48,11 +52,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.lin1473.shortlink.project.common.constant.RedisKeyConstant.*;
 
@@ -309,34 +311,63 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
      * @param response 浏览器响应
      */
     private void shortLinkStats(String fullShortUrl, String gid, ServletRequest request, ServletResponse response) {
-       try {
-           if (StrUtil.isBlank(gid)) {
-               LambdaQueryWrapper<ShortLinkGotoDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
-                       .eq(ShortLinkGotoDO::getFullShortUrl, fullShortUrl);
-               ShortLinkGotoDO shortLinkGotoDO = shortLinkGotoMapper.selectOne(queryWrapper);
-               gid = shortLinkGotoDO.getGid();
-           }
-           // 获取当前时间是第几小时（24小时制）   new Date()是当前时间，精确到秒
-           int hour = DateUtil.hour(new Date(), true);
-           // 获取当前时间是周几
-           Week week = DateUtil.dayOfWeekEnum(new Date());
-           int weekValue = week.getIso8601Value();
+        AtomicBoolean uvFirstFlag = new AtomicBoolean();    // 判断是否第一次访问，第一次访问会创建cookie，同时用户访问量uv++
+        Cookie[] cookies = ((HttpServletRequest) request).getCookies();
+        try {
+            Runnable addResponseCookieTask = () -> {
+                // 使用cookie 标识同一个用户
+                String uv = UUID.fastUUID().toString();
+                Cookie uvCookie = new Cookie("uv", uv);
+                uvCookie.setMaxAge(60 * 60 * 24 * 30);   // 30天有效期
+                uvCookie.setPath(StrUtil.sub(fullShortUrl, fullShortUrl.indexOf("/"), fullShortUrl.length()));  // 如果full是http://nurl.ink/3draim， 那么切割为 /3draim
+                ((HttpServletResponse) response).addCookie(uvCookie);
+                uvFirstFlag.set(Boolean.TRUE);
+                stringRedisTemplate.opsForSet().add("short-link:stats:uv:" + fullShortUrl, uv);
+            };
+            // 先看处理请求里面有没有cookies：
+            // 如果有cookie，直接缓存，表明当前请求是同一个用户，uv不用+1，uvFirstFlag.get()为false
+            // 如果没有cookie，就需要先创建，uv需要+1，uvFirstFlag.get()为true
+            if (ArrayUtil.isNotEmpty(cookies)) {
+                Arrays.stream(cookies)
+                        .filter(each -> Objects.equals(each.getName(), "uv"))
+                        .findFirst()
+                        .map(Cookie::getValue)
+                        .ifPresentOrElse(each -> {  // 有cookie
+                            Long added = stringRedisTemplate.opsForSet().add("short-link:stats:uv:" + fullShortUrl, each);
+                            uvFirstFlag.set(added != null && added > 0L);
+                        }, addResponseCookieTask);
+            } else {
+                // 没有cookie时：
+                addResponseCookieTask.run();
+            }
 
-           // 使用builder创建DO对象
-           LinkAccessStatsDO linkAccessStatsDO = LinkAccessStatsDO.builder()
-                   .fullShortUrl(fullShortUrl)
-                   .gid(gid)
-                   .date(new Date())   // yy-mm-dd
-                   .pv(1)
-                   .uv(1)
-                   .uip(1)
-                   .hour(hour)
-                   .weekday(weekValue)
-                   .build();
-           linkAccessStatsMapper.shortLinkStats(linkAccessStatsDO);
-       } catch (Throwable ex) {
-           log.error("短链接访问量统计异常", ex);
-       }
+            if (StrUtil.isBlank(gid)) {
+                LambdaQueryWrapper<ShortLinkGotoDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
+                        .eq(ShortLinkGotoDO::getFullShortUrl, fullShortUrl);
+                ShortLinkGotoDO shortLinkGotoDO = shortLinkGotoMapper.selectOne(queryWrapper);
+                gid = shortLinkGotoDO.getGid();
+            }
+            // 获取当前时间是第几小时（24小时制）   new Date()是当前时间，精确到秒
+            int hour = DateUtil.hour(new Date(), true);
+            // 获取当前时间是周几
+            Week week = DateUtil.dayOfWeekEnum(new Date());
+            int weekValue = week.getIso8601Value();
+
+            // 使用builder创建DO对象
+            LinkAccessStatsDO linkAccessStatsDO = LinkAccessStatsDO.builder()
+                    .fullShortUrl(fullShortUrl)
+                    .gid(gid)
+                    .date(new Date())   // yy-mm-dd
+                    .pv(1)       // 在linkAccessStatsMapper里面，pv = pv +  #{linkAccessStats.pv}， 这里=1则表示自增1
+                    .uv(uvFirstFlag.get() ? 1 : 0)   // 在linkAccessStatsMapper里面，uv = uv + #{linkAccessStats.uv}，如果=0就维持uv不变
+                    .uip(1)
+                    .hour(hour)
+                    .weekday(weekValue)
+                    .build();
+            linkAccessStatsMapper.shortLinkStats(linkAccessStatsDO);
+        } catch (Throwable ex) {
+            log.error("短链接访问量统计异常", ex);
+        }
     }
 
     /**
