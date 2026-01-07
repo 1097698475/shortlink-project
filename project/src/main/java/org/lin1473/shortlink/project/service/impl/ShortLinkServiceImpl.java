@@ -1,6 +1,8 @@
 package org.lin1473.shortlink.project.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.date.Week;
 import cn.hutool.core.text.StrBuilder;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -21,8 +23,10 @@ import org.jsoup.nodes.Element;
 import org.lin1473.shortlink.project.common.convention.exception.ClientException;
 import org.lin1473.shortlink.project.common.convention.exception.ServiceException;
 import org.lin1473.shortlink.project.common.enums.VailDateTypeEnum;
+import org.lin1473.shortlink.project.dao.entity.LinkAccessStatsDO;
 import org.lin1473.shortlink.project.dao.entity.ShortLinkDO;
 import org.lin1473.shortlink.project.dao.entity.ShortLinkGotoDO;
+import org.lin1473.shortlink.project.dao.mapper.LinkAccessStatsMapper;
 import org.lin1473.shortlink.project.dao.mapper.ShortLinkGotoMapper;
 import org.lin1473.shortlink.project.dao.mapper.ShortLinkMapper;
 import org.lin1473.shortlink.project.dto.req.ShortLinkCreateReqDTO;
@@ -64,6 +68,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final ShortLinkGotoMapper shortLinkGotoMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final RedissonClient redissonClient;
+    private final LinkAccessStatsMapper linkAccessStatsMapper;
 
     @Override
     public ShortLinkCreateRespDTO createShortLink(ShortLinkCreateReqDTO requestParam) {
@@ -223,6 +228,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         // 根据key查找redis对应的原始网址，如果查得到就不用查数据库。String.format就是将它们拼接起来
         String originalLink = stringRedisTemplate.opsForValue().get(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl));
         if (StrUtil.isNotBlank(originalLink)) {
+            // 短链接跳转的时候，自增pv访问次数
+            shortLinkStats(fullShortUrl, null, request, response);
             ((HttpServletResponse) response).sendRedirect(originalLink);
             return;
         }
@@ -247,6 +254,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             // 锁内二次检查。假设每秒 1000 个请求进来，全部尝试去执行 lock.lock()，只有一个线程成功获得锁，其他线程阻塞等待，获得锁的线程查询数据库，并把结果写到 Redis，其他线程随后也会获得锁（依次排队），如果锁内不检查第二次 Redis，那么所有线程都要查数据库
             originalLink = stringRedisTemplate.opsForValue().get(String.format(GOTO_SHORT_LINK_KEY, fullShortUrl));
             if (StrUtil.isNotBlank(originalLink)) {
+                // 短链接跳转的时候，自增pv访问次数
+                shortLinkStats(fullShortUrl, null, request, response);
                 ((HttpServletResponse) response).sendRedirect(originalLink);
                 return;
             }
@@ -284,12 +293,58 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     shortLinkDO.getOriginUrl(),
                     LinkUtil.getLinkCacheValidTime(shortLinkDO.getValidDate()), TimeUnit.MILLISECONDS
             );
+            // 短链接跳转的时候，自增pv访问次数
+            shortLinkStats(fullShortUrl, shortLinkDO.getGid(), request, response);
             ((HttpServletResponse) response).sendRedirect(shortLinkDO.getOriginUrl());  //重定向
         } finally {
             lock.unlock();
         }
     }
 
+    /**
+     * 创建/更新 短链接监控统计表
+     * @param fullShortUrl 完整短链接
+     * @param gid 分组标识
+     * @param request 浏览器请求
+     * @param response 浏览器响应
+     */
+    private void shortLinkStats(String fullShortUrl, String gid, ServletRequest request, ServletResponse response) {
+       try {
+           if (StrUtil.isBlank(gid)) {
+               LambdaQueryWrapper<ShortLinkGotoDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
+                       .eq(ShortLinkGotoDO::getFullShortUrl, fullShortUrl);
+               ShortLinkGotoDO shortLinkGotoDO = shortLinkGotoMapper.selectOne(queryWrapper);
+               gid = shortLinkGotoDO.getGid();
+           }
+           // 获取当前时间是第几小时（24小时制）   new Date()是当前时间，精确到秒
+           int hour = DateUtil.hour(new Date(), true);
+           // 获取当前时间是周几
+           Week week = DateUtil.dayOfWeekEnum(new Date());
+           int weekValue = week.getIso8601Value();
+
+           // 使用builder创建DO对象
+           LinkAccessStatsDO linkAccessStatsDO = LinkAccessStatsDO.builder()
+                   .fullShortUrl(fullShortUrl)
+                   .gid(gid)
+                   .date(new Date())   // yy-mm-dd
+                   .pv(1)
+                   .uv(1)
+                   .uip(1)
+                   .hour(hour)
+                   .weekday(weekValue)
+                   .build();
+           linkAccessStatsMapper.shortLinkStats(linkAccessStatsDO);
+       } catch (Throwable ex) {
+           log.error("短链接访问量统计异常", ex);
+       }
+    }
+
+    /**
+     * 生成六位短链接后缀
+     *
+     * @param requestParam 创建短链接请求参数，需要OriginUrl
+     * @return 短链接后缀
+     */
     private String generateSuffix(ShortLinkCreateReqDTO requestParam) {
         // 解决生成重复的问题
         int customGenerateCount = 0;
@@ -309,6 +364,12 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         return shortUri;    //查找布隆过滤器，返回存在，可能数据是不存在的
     }
 
+    /**
+     * 获取目标网址的图标
+     *
+     * @param url 目标网址
+     * @return 图标
+     */
     @SneakyThrows
     private String getFavicon(String url) {
         URL targetUrl = new URL(url);
