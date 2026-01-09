@@ -312,15 +312,16 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
      */
     private void shortLinkStats(String fullShortUrl, String gid, ServletRequest request, ServletResponse response) {
         AtomicBoolean uvFirstFlag = new AtomicBoolean();    // 判断是否第一次访问，第一次访问会创建cookie，同时用户访问量uv++
-        Cookie[] cookies = ((HttpServletRequest) request).getCookies();
+        Cookie[] cookies = ((HttpServletRequest) request).getCookies();     // 浏览器的http请求，可能会保存cookie
         try {
+            // 匿名函数，不调用不会执行
             Runnable addResponseCookieTask = () -> {
                 // 使用cookie 标识同一个用户
                 String uv = UUID.fastUUID().toString();
                 Cookie uvCookie = new Cookie("uv", uv);
                 uvCookie.setMaxAge(60 * 60 * 24 * 30);   // 30天有效期
                 uvCookie.setPath(StrUtil.sub(fullShortUrl, fullShortUrl.indexOf("/"), fullShortUrl.length()));  // 如果full是http://nurl.ink/3draim， 那么切割为 /3draim
-                ((HttpServletResponse) response).addCookie(uvCookie);
+                ((HttpServletResponse) response).addCookie(uvCookie);   // 方法全部执行完后，Spring内置的服务器会给浏览器发送该响应
                 uvFirstFlag.set(Boolean.TRUE);
                 stringRedisTemplate.opsForSet().add("short-link:stats:uv:" + fullShortUrl, uv);
             };
@@ -332,14 +333,21 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                         .filter(each -> Objects.equals(each.getName(), "uv"))
                         .findFirst()
                         .map(Cookie::getValue)
+                        // 这一段的逻辑是：找到了 uvCookie，就尝试加入redis集合，如果是第一次加入，added=1, 此时uvFirstFlag=True；如果已经加入过，added=0，flag=false
+                        // 没有找到 uvCookie， 就执行addResponseCookieTask（该代码段中，也需要加入redis，设置uvFirstFlag=true)
                         .ifPresentOrElse(each -> {  // 有cookie
-                            Long added = stringRedisTemplate.opsForSet().add("short-link:stats:uv:" + fullShortUrl, each);
-                            uvFirstFlag.set(added != null && added > 0L);
+                            Long uvAdded = stringRedisTemplate.opsForSet().add("short-link:stats:uv:" + fullShortUrl, each);
+                            uvFirstFlag.set(uvAdded != null && uvAdded > 0L);
                         }, addResponseCookieTask);
             } else {
                 // 没有cookie时：
                 addResponseCookieTask.run();
             }
+
+            // 统计UIP，和uv差不多，ip相同的请求，多次访问，uip不会变。尝试添加redis，第一次添加 added=1，此时flag=true；否则added=0, flag=false
+            String remoteAddr = LinkUtil.getActualIp((HttpServletRequest) request);
+            Long uipAdded = stringRedisTemplate.opsForSet().add("short-link:stats:uip:" + fullShortUrl, remoteAddr);
+            boolean uipFirstFlag = uipAdded != null && uipAdded > 0L;
 
             if (StrUtil.isBlank(gid)) {
                 LambdaQueryWrapper<ShortLinkGotoDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
@@ -360,11 +368,11 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .date(new Date())   // yy-mm-dd
                     .pv(1)       // 在linkAccessStatsMapper里面，pv = pv +  #{linkAccessStats.pv}， 这里=1则表示自增1
                     .uv(uvFirstFlag.get() ? 1 : 0)   // 在linkAccessStatsMapper里面，uv = uv + #{linkAccessStats.uv}，如果=0就维持uv不变
-                    .uip(1)
+                    .uip(uipFirstFlag ? 1 : 0)
                     .hour(hour)
                     .weekday(weekValue)
                     .build();
-            linkAccessStatsMapper.shortLinkStats(linkAccessStatsDO);
+            linkAccessStatsMapper.shortLinkStats(linkAccessStatsDO);    // 调用自定义的SQL操作，因为mybatis做不了
         } catch (Throwable ex) {
             log.error("短链接访问量统计异常", ex);
         }
