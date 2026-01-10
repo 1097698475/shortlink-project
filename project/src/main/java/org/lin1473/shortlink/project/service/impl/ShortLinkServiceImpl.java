@@ -7,6 +7,9 @@ import cn.hutool.core.lang.UUID;
 import cn.hutool.core.text.StrBuilder;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpUtil;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -28,9 +31,11 @@ import org.lin1473.shortlink.project.common.convention.exception.ClientException
 import org.lin1473.shortlink.project.common.convention.exception.ServiceException;
 import org.lin1473.shortlink.project.common.enums.VailDateTypeEnum;
 import org.lin1473.shortlink.project.dao.entity.LinkAccessStatsDO;
+import org.lin1473.shortlink.project.dao.entity.LinkLocaleStatsDO;
 import org.lin1473.shortlink.project.dao.entity.ShortLinkDO;
 import org.lin1473.shortlink.project.dao.entity.ShortLinkGotoDO;
 import org.lin1473.shortlink.project.dao.mapper.LinkAccessStatsMapper;
+import org.lin1473.shortlink.project.dao.mapper.LinkLocaleStatsMapper;
 import org.lin1473.shortlink.project.dao.mapper.ShortLinkGotoMapper;
 import org.lin1473.shortlink.project.dao.mapper.ShortLinkMapper;
 import org.lin1473.shortlink.project.dto.req.ShortLinkCreateReqDTO;
@@ -57,6 +62,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.lin1473.shortlink.project.common.constant.RedisKeyConstant.*;
+import static org.lin1473.shortlink.project.common.constant.ShortLinkConstant.IP2LOCATION_REMOTE_URL;
 
 /**
  * 短链接接口实现层
@@ -71,6 +77,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final StringRedisTemplate stringRedisTemplate;
     private final RedissonClient redissonClient;
     private final LinkAccessStatsMapper linkAccessStatsMapper;
+    private final LinkLocaleStatsMapper linkLocaleStatsMapper;
+
 
     @Override
     public ShortLinkCreateRespDTO createShortLink(ShortLinkCreateReqDTO requestParam) {
@@ -349,6 +357,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             Long uipAdded = stringRedisTemplate.opsForSet().add("short-link:stats:uip:" + fullShortUrl, remoteAddr);
             boolean uipFirstFlag = uipAdded != null && uipAdded > 0L;
 
+            // gid可能会不传入
             if (StrUtil.isBlank(gid)) {
                 LambdaQueryWrapper<ShortLinkGotoDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkGotoDO.class)
                         .eq(ShortLinkGotoDO::getFullShortUrl, fullShortUrl);
@@ -373,6 +382,30 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .weekday(weekValue)
                     .build();
             linkAccessStatsMapper.shortLinkStats(linkAccessStatsDO);    // 调用自定义的SQL操作，因为mybatis做不了
+
+            // 调用ip2location IP查询接口
+            Map<String, Object> localeParamMap = new HashMap<>();
+            localeParamMap.put("ip", remoteAddr);   // 接口只有一个参数
+            String localeResultStr = HttpUtil.get(IP2LOCATION_REMOTE_URL, localeParamMap);  // 发起GET请求，自动拼接成 https://api.ip2location.io/?ip=xxx
+            JSONObject localeResultObj = JSON.parseObject(localeResultStr);
+            // 如果请求成功
+            String country = localeResultObj.getString("country_name"); // 请求失败不会有country_name字段
+            if (StrUtil.isNotBlank(country) || "127.0.0.1".equals(remoteAddr) || "::1".equals(remoteAddr)) {
+                boolean unknownFlag = StrUtil.equals(country, "null") || country == null;  //
+                LinkLocaleStatsDO linkLocaleStatsDO = LinkLocaleStatsDO.builder()
+                        .country(unknownFlag ? "未知" : country)
+                        .province(unknownFlag ? "未知" : localeResultObj.getString("region_name"))
+                        .city(unknownFlag ? "未知" : localeResultObj.getString("city_name"))
+                        .adcode(unknownFlag ? "未知" : localeResultObj.getString("zip_code"))   // 其实zip_code是邮编，adcode是城市编码，不一样
+                        .cnt(1)
+                        .fullShortUrl(fullShortUrl)
+                        .gid(gid)
+                        .date(new Date())
+                        .build();
+                linkLocaleStatsMapper.shortLinkLocaleStats(linkLocaleStatsDO); // 调用自定义的SQL操作，因为mybatis做不了
+            }
+
+
         } catch (Throwable ex) {
             log.error("短链接访问量统计异常", ex);
         }

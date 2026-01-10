@@ -10,4 +10,10 @@ public class ShortLinkConstant {
      * 毫秒单位，1个月有效时间
      */
     public static final long DEFAULT_CACHE_VALID_TIME = 2626560000L;
+
+    /**
+     * ip2location IP 查询接口
+     * 教程使用高德接口
+     */
+    public static final String IP2LOCATION_REMOTE_URL = "https://api.ip2location.io/";
 }
