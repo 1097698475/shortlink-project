@@ -54,6 +54,7 @@ import java.net.URL;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.lin1473.shortlink.project.common.constant.RedisKeyConstant.*;
 import static org.lin1473.shortlink.project.common.constant.ShortLinkConstant.IP2LOCATION_REMOTE_URL;
@@ -74,6 +75,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final LinkLocaleStatsMapper linkLocaleStatsMapper;
     private final LinkOsStatsMapper linkOsStatsMapper;
     private final LinkBrowserStatsMapper linkBrowserStatsMapper;
+    private final LinkAccessLogsMapper linkAccessLogsMapper;
 
 
 
@@ -319,16 +321,17 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
         AtomicBoolean uvFirstFlag = new AtomicBoolean();    // 判断是否第一次访问，第一次访问会创建cookie，同时用户访问量uv++
         Cookie[] cookies = ((HttpServletRequest) request).getCookies();     // 浏览器的http请求，可能会保存cookie
         try {
+            AtomicReference<String> uv = new AtomicReference<>();   // 普通变量不能在匿名函数里面赋值修改，这种final变量才可以
             // 匿名函数，不调用不会执行
             Runnable addResponseCookieTask = () -> {
                 // 使用cookie 标识同一个用户
-                String uv = UUID.fastUUID().toString();
-                Cookie uvCookie = new Cookie("uv", uv);
+                uv.set(UUID.fastUUID().toString());     // 赋值final变量，以便外部的访问日志对象能使用
+                Cookie uvCookie = new Cookie("uv", uv.get());
                 uvCookie.setMaxAge(60 * 60 * 24 * 30);   // 30天有效期
                 uvCookie.setPath(StrUtil.sub(fullShortUrl, fullShortUrl.indexOf("/"), fullShortUrl.length()));  // 如果full是http://nurl.ink/3draim， 那么切割为 /3draim
                 ((HttpServletResponse) response).addCookie(uvCookie);   // 方法全部执行完后，Spring内置的服务器会给浏览器发送该响应
                 uvFirstFlag.set(Boolean.TRUE);
-                stringRedisTemplate.opsForSet().add("short-link:stats:uv:" + fullShortUrl, uv);
+                stringRedisTemplate.opsForSet().add("short-link:stats:uv:" + fullShortUrl, uv.get());   // 这里的结构是key=“short-link:stats:uv:xxx”, value={"uv1","uv2"...}，value是个集合，不会重复
             };
             // 先看处理请求里面有没有cookies：
             // 如果有cookie，直接缓存，表明当前请求是同一个用户，uv不用+1，uvFirstFlag.get()为false
@@ -341,6 +344,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                         // 这一段的逻辑是：找到了 uvCookie，就尝试加入redis集合，如果是第一次加入，added=1, 此时uvFirstFlag=True；如果已经加入过，added=0，flag=false
                         // 没有找到 uvCookie， 就执行addResponseCookieTask（该代码段中，也需要加入redis，设置uvFirstFlag=true)
                         .ifPresentOrElse(each -> {  // 有cookie
+                            uv.set(each);   // 赋值final变量，以便外部的访问日志对象能使用
                             Long uvAdded = stringRedisTemplate.opsForSet().add("short-link:stats:uv:" + fullShortUrl, each);
                             uvFirstFlag.set(uvAdded != null && uvAdded > 0L);
                         }, addResponseCookieTask);
@@ -403,8 +407,9 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             }
 
             // 统计请求设备的操作系统，使用 request.getHeader("User-Agent")
+            String os = LinkUtil.getOs(((HttpServletRequest) request));
             LinkOsStatsDO linkOsStatsDO = LinkOsStatsDO.builder()
-                    .os(LinkUtil.getOs(((HttpServletRequest) request)))
+                    .os(os)
                     .cnt(1)
                     .gid(gid)
                     .fullShortUrl(fullShortUrl)
@@ -413,14 +418,27 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             linkOsStatsMapper.shortLinkOsStats(linkOsStatsDO);
 
             // 统计请求的浏览器
+            String browser = LinkUtil.getBrowser(((HttpServletRequest) request));
             LinkBrowserStatsDO linkBrowserStatsDO = LinkBrowserStatsDO.builder()
-                    .browser(LinkUtil.getBrowser(((HttpServletRequest) request)))
+                    .browser(browser)
                     .cnt(1)
                     .gid(gid)
                     .fullShortUrl(fullShortUrl)
                     .date(new Date())
                     .build();
             linkBrowserStatsMapper.shortLinkBrowserStats(linkBrowserStatsDO);
+
+            // 统计高频访问IP，业务逻辑直接在访问日志表写mysql，不用mapoer
+            LinkAccessLogsDO linkAccessLogsDO = LinkAccessLogsDO.builder()
+                    .user(uv.get())     // 是cookie的标识，不是用户名
+                    .ip(remoteAddr)
+                    .browser(browser)
+                    .os(os)
+                    .gid(gid)
+                    .fullShortUrl(fullShortUrl)
+                    .build();
+            linkAccessLogsMapper.insert(linkAccessLogsDO);
+
 
         } catch (Throwable ex) {
             log.error("短链接访问量统计异常", ex);
