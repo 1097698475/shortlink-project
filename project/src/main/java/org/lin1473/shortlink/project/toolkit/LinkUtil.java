@@ -93,6 +93,36 @@ public class LinkUtil {
         }
     }
 
+    /**
+     * 获取用户访问浏览器
+     * 浏览器厂商为了兼容老网页，会在自己的 User-Agent 中伪装成其他浏览器，比如chrome浏览器也有Safari字段，告诉网站它支持 Safari 的特性。
+     *
+     * @param request 请求
+     * @return 访问浏览器
+     */
+    public static String getBrowser(HttpServletRequest request) {
+        String userAgent = request.getHeader("User-Agent");
+        if (userAgent == null) {
+            return "Unknown";
+        }
+
+        userAgent = userAgent.toLowerCase(); // 转小写
+
+        if (userAgent.contains("edg")) { // Edge
+            return "Microsoft Edge";
+        } else if (userAgent.contains("opr") || userAgent.contains("opera")) { // Opera
+            return "Opera";
+        } else if (userAgent.contains("chrome")) { // Chrome (排除 Edge 和 Opera)
+            return "Google Chrome";
+        } else if (userAgent.contains("firefox")) { // Firefox
+            return "Mozilla Firefox";
+        } else if (userAgent.contains("safari")) { // Safari (排除 Chrome)
+            return "Apple Safari";
+        } else {
+            return "Other";
+        }
+    }
+
     private static boolean isValid(String ip) {
         return ip != null && ip.length() != 0 && !"unknown".equalsIgnoreCase(ip);
     }
