@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import org.lin1473.shortlink.project.common.database.BaseDO;
 
 /**
- * 短链接访问日志监控实体
+ * 短链接访问 日志监控实体
  */
 @Data
 @TableName("t_link_access_logs")
