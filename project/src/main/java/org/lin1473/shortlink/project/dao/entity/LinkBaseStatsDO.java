@@ -11,14 +11,15 @@ import org.lin1473.shortlink.project.common.database.BaseDO;
 import java.util.Date;
 
 /**
- * 短链接基础访问监控实体
+ * 短链接基础访问实体
+ * 何为基础？就是一定需要这些数据，可以用当天24小时所有pv uv uip相加得到当天数据，也可以得到一周的数据。
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("t_link_access_stats")
-public class LinkAccessStatsDO extends BaseDO {
+@TableName("t_link_base_stats")
+public class LinkBaseStatsDO extends BaseDO {
 
     /**
      * id
