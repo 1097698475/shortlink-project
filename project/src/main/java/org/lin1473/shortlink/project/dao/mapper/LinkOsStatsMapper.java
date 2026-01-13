@@ -6,7 +6,7 @@ import org.apache.ibatis.annotations.Param;
 import org.lin1473.shortlink.project.dao.entity.LinkOsStatsDO;
 
 /**
- * 操作系统统计访问持久层
+ * 操作系统访问 统计持久层
  */
 public interface LinkOsStatsMapper extends BaseMapper<LinkOsStatsDO> {
 

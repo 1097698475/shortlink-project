@@ -6,7 +6,7 @@ import org.apache.ibatis.annotations.Param;
 import org.lin1473.shortlink.project.dao.entity.LinkBrowserStatsDO;
 
 /**
- * 浏览器统计访问持久层
+ * 浏览器访问 统计持久层
  */
 public interface LinkBrowserStatsMapper extends BaseMapper<LinkBrowserStatsDO> {
 

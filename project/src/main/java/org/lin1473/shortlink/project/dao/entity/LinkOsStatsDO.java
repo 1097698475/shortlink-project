@@ -10,7 +10,7 @@ import org.lin1473.shortlink.project.common.database.BaseDO;
 import java.util.Date;
 
 /**
- * 操作系统统计访问实体
+ * 操作系统访问 统计实体
  */
 @Data
 @TableName("t_link_os_stats")

@@ -71,7 +71,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final ShortLinkGotoMapper shortLinkGotoMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final RedissonClient redissonClient;
-    private final LinkAccessStatsMapper linkAccessStatsMapper;
+    private final LinkBaseStatsMapper linkBaseStatsMapper;
     private final LinkLocaleStatsMapper linkLocaleStatsMapper;
     private final LinkOsStatsMapper linkOsStatsMapper;
     private final LinkBrowserStatsMapper linkBrowserStatsMapper;
@@ -128,12 +128,11 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 );
         shortUriCreateCachePenetrationBloomFilter.add(fullShortUrl);
         // 链式创建
-        ShortLinkCreateRespDTO shortLinkCreateRespDTO = ShortLinkCreateRespDTO.builder()
+        return  ShortLinkCreateRespDTO.builder()
                 .fullShortUrl("http://" + shortLinkDO.getFullShortUrl())    // 测试阶段直接拼http
                 .gid(requestParam.getGid())
                 .originUrl(requestParam.getOriginUrl())
                 .build();
-        return shortLinkCreateRespDTO;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -314,7 +313,8 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     }
 
     /**
-     * 创建/更新 短链接监控统计表
+     * 创建/更新
+     * TODO 这个方法会重构到ShortLinkStatsServiceImpl里面的oneShortLinkStats方法s
      * @param fullShortUrl 完整短链接
      * @param gid 分组标识
      * @param request 浏览器请求
@@ -355,7 +355,6 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 // 没有cookie时：
                 addResponseCookieTask.run();
             }
-
             // 统计UIP，和uv差不多，ip相同的请求，多次访问，uip不会变。尝试添加redis，第一次添加 added=1，此时flag=true；否则added=0, flag=false
             String remoteAddr = LinkUtil.getActualIp((HttpServletRequest) request);
             Long uipAdded = stringRedisTemplate.opsForSet().add("short-link:stats:uip:" + fullShortUrl, remoteAddr);
@@ -375,7 +374,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             int weekValue = week.getIso8601Value();
 
             // 使用builder创建DO对象
-            LinkAccessStatsDO linkAccessStatsDO = LinkAccessStatsDO.builder()
+            LinkBaseStatsDO linkBaseStatsDO = LinkBaseStatsDO.builder()
                     .fullShortUrl(fullShortUrl)
                     .gid(gid)
                     .date(new Date())   // yy-mm-dd
@@ -385,7 +384,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .hour(hour)
                     .weekday(weekValue)
                     .build();
-            linkAccessStatsMapper.shortLinkStats(linkAccessStatsDO);    // 调用自定义的SQL操作，因为mybatis做不了
+            linkBaseStatsMapper.shortLinkStats(linkBaseStatsDO);    // 调用自定义的SQL操作，因为mybatis做不了
 
             // 调用ip2location IP查询接口
             Map<String, Object> localeParamMap = new HashMap<>();

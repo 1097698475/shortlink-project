@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.lin1473.shortlink.project.dao.entity.LinkLocaleStatsDO;
 
 /**
- * 地区统计访问持久层
+ * 地区访问 统计持久层
  */
 public interface LinkLocaleStatsMapper extends BaseMapper<LinkLocaleStatsDO> {
 

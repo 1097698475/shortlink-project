@@ -11,7 +11,7 @@ import org.lin1473.shortlink.project.common.database.BaseDO;
 import java.util.Date;
 
 /**
- * 地区统计访问实体
+ * 地区访问 统计实体
  */
 @Data
 @TableName("t_link_locale_stats")

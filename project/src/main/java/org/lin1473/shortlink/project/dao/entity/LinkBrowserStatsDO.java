@@ -10,7 +10,7 @@ import org.lin1473.shortlink.project.common.database.BaseDO;
 import java.util.Date;
 
 /**
- * 浏览器统计访问实体
+ * 浏览器访问 统计实体
  */
 @Data
 @TableName("t_link_browser_stats")
