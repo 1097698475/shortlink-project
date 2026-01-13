@@ -45,6 +45,5 @@ public interface LinkBaseStatsMapper extends BaseMapper<LinkBaseStatsDO> {
                 uv = uv + #{linkBaseStats.uv},
                 uip = uip + #{linkBaseStats.uip};
             """)
-    void shortLinkStats(@Param("linkBaseStats") LinkBaseStatsDO linkBaseStatsDO);
-
+    void shortLinkBaseStats(@Param("linkBaseStats") LinkBaseStatsDO linkBaseStatsDO);
 }

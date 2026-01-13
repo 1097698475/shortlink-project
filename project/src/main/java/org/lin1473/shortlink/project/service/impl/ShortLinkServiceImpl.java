@@ -384,7 +384,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .hour(hour)
                     .weekday(weekValue)
                     .build();
-            linkBaseStatsMapper.shortLinkStats(linkBaseStatsDO);    // 调用自定义的SQL操作，因为mybatis做不了
+            linkBaseStatsMapper.shortLinkBaseStats(linkBaseStatsDO);    // 调用自定义的SQL操作，因为mybatis做不了
 
             // 调用ip2location IP查询接口
             Map<String, Object> localeParamMap = new HashMap<>();
@@ -459,7 +459,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .fullShortUrl(fullShortUrl)
                     .date(new Date())
                     .build();
-            linkNetworkStatsMapper.shortLinkNetworkState(linkNetworkStatsDO);
+            linkNetworkStatsMapper.shortLinkNetworkStats(linkNetworkStatsDO);
 
 
 
