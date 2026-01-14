@@ -32,7 +32,7 @@ public class ShortLinkStatsRespDTO {
     private Integer uip;
 
     /**
-     * 基础访问详情
+     * 基础访问详情（日粒度）
      * 在这个时间段的每日pv uv uip，和上面三个不同，上面的是这个时间段总的数据
      */
     private List<ShortLinkStatsAccessDailyRespDTO> daily;

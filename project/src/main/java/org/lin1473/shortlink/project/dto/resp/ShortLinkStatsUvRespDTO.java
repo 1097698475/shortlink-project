@@ -21,6 +21,9 @@ public class ShortLinkStatsUvRespDTO {
 
     /**
      * 访客类型
+     * newUser
+     * oldUser
+     * 详细定义参考ontShortLinkStats方法
      */
     private String uvType;
 

@@ -34,6 +34,7 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
     @Override
     public ShortLinkStatsRespDTO oneShortLinkStats(ShortLinkStatsReqDTO requestParam) {
         // 指定短链接在日期范围内的日粒度统计，列表形式，短链接基础访问统计
+        // TODO 需要继续完善，因为linkBaseStatsMapper.listDayStatsByShortLink返回的只有四个字段的DO，date、sum(pv)、sum(uv)、sum(uip)，而LinkBaseStatsDO其他字段都为空
         List<LinkBaseStatsDO> listDayStatsByShortLink = linkBaseStatsMapper.listDayStatsByShortLink(requestParam);
 
         // 小时访问详情，根据小时进行分组
@@ -74,10 +75,11 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
         });
 
         // 访客访问类型详情
-        // 看这个时间段访问该短链接的是新用户还是老用户，这个时间段第一次访问就是新用户，不是第一次访问就是老用户
+        // 新访客：在requestParam的 startDate 之前从未访问过，但在 [startDate, endDate] 内访问过
+        // 老访客：在requestParam的 startDate 之前访问过，且在 [startDate, endDate] 内也访问过
         List<ShortLinkStatsUvRespDTO> uvTypeStats = new ArrayList<>();      // oneShortLinkStats接口需要返回的列表DTO
         HashMap<String, Object> findUvTypeByShortLink = linkAccessLogsMapper.findUvTypeCntByShortLink(requestParam);
-        int oldUserCnt = Integer.parseInt(findUvTypeByShortLink.get("oldUserCnt").toString());
+        int oldUserCnt = Integer.parseInt(findUvTypeByShortLink.get("oldUserCnt").toString());  // findUvTypeByShortLink.get("oldUserCnt")返回的是Object类型，因为HashMap<String, Object>，所以转成toString()安全
         int newUserCnt = Integer.parseInt(findUvTypeByShortLink.get("newUserCnt").toString());
         int uvSum = oldUserCnt + newUserCnt;
         double oldRatio = (double) oldUserCnt / uvSum;
@@ -186,6 +188,7 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
             networkStats.add(networkRespDTO);
         });
 
+        // pv uv uip字段呢
         return ShortLinkStatsRespDTO.builder()
                 .daily(BeanUtil.copyToList(listDayStatsByShortLink, ShortLinkStatsAccessDailyRespDTO.class))
                 .localeCnStats(localeCnStats)

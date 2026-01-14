@@ -368,9 +368,9 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 gid = shortLinkGotoDO.getGid();
             }
             // 获取当前时间是第几小时（24小时制）   new Date()是当前时间，精确到秒
-            int hour = DateUtil.hour(new Date(), true);
+            int hour = DateUtil.hour(new Date(), true);     // 0-23
             // 获取当前时间是周几
-            Week week = DateUtil.dayOfWeekEnum(new Date());
+            Week week = DateUtil.dayOfWeekEnum(new Date()); //1-7
             int weekValue = week.getIso8601Value();
 
             // 使用builder创建DO对象
@@ -430,7 +430,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .build();
             linkBrowserStatsMapper.shortLinkBrowserStats(linkBrowserStatsDO);
 
-            // 统计高频访问IP，业务逻辑直接在访问日志表写mysql，不用mapoer
+            // 统计高频访问IP，业务逻辑直接在访问日志表写mysql
             LinkAccessLogsDO linkAccessLogsDO = LinkAccessLogsDO.builder()
                     .user(uv.get())     // 是cookie的标识，不是用户名
                     .ip(remoteAddr)
