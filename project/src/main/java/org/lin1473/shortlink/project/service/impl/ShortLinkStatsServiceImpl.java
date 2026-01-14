@@ -1,19 +1,21 @@
 package org.lin1473.shortlink.project.service.impl;
 
 
-import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.DateField;
+import cn.hutool.core.date.DateUtil;
 import lombok.RequiredArgsConstructor;
-import org.lin1473.shortlink.project.dao.entity.*;
+import org.lin1473.shortlink.project.dao.entity.LinkBaseStatsDO;
+import org.lin1473.shortlink.project.dao.entity.LinkDeviceStatsDO;
+import org.lin1473.shortlink.project.dao.entity.LinkLocaleStatsDO;
+import org.lin1473.shortlink.project.dao.entity.LinkNetworkStatsDO;
 import org.lin1473.shortlink.project.dao.mapper.*;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 import org.lin1473.shortlink.project.dto.resp.*;
 import org.lin1473.shortlink.project.service.ShortLinkStatsService;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -33,9 +35,44 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
 
     @Override
     public ShortLinkStatsRespDTO oneShortLinkStats(ShortLinkStatsReqDTO requestParam) {
-        // 指定短链接在日期范围内的日粒度统计，列表形式，短链接基础访问统计
-        // TODO 需要继续完善，因为linkBaseStatsMapper.listDayStatsByShortLink返回的只有四个字段的DO，date、sum(pv)、sum(uv)、sum(uip)，而LinkBaseStatsDO其他字段都为空
+
+        // 指定短链接在日期范围内的日粒度统计
         List<LinkBaseStatsDO> listDayStatsByShortLink = linkBaseStatsMapper.listDayStatsByShortLink(requestParam);
+        if (CollUtil.isEmpty(listDayStatsByShortLink)) {
+            return null;
+        }
+        //  注意：返回List是ShortLinkStatsReqDTO的开始日期到结束日期这之间的所有日期的pv uv uip，
+        //  如果某一天没有访问数据，也要返回0，以便展示每天的折线图
+        List<ShortLinkStatsAccessDailyRespDTO> daily = new ArrayList<>();   // oneShortLinkStats接口需要返回的列表DTO
+        // 构造日期范围列表
+        List<String> rangeDates = DateUtil.rangeToList(
+                DateUtil.parse(requestParam.getStartDate()),
+                DateUtil.parse(requestParam.getEndDate()),
+                DateField.DAY_OF_MONTH
+                ).stream()
+                .map(DateUtil::formatDate)
+                .toList();
+        // 遍历每一天，找数据库返回的数据，没有就补 0
+        rangeDates.forEach(each -> listDayStatsByShortLink.stream()
+                .filter(item -> Objects.equals(each, DateUtil.formatDate(item.getDate())))
+                .findFirst()
+                .ifPresentOrElse(item -> {
+                    ShortLinkStatsAccessDailyRespDTO accessDailyRespDTO = ShortLinkStatsAccessDailyRespDTO.builder()
+                            .date(DateUtil.parse(each))     // 每个each都是String，DTO里面是Date类型
+                            .pv(item.getPv())
+                            .uv(item.getUv())
+                            .uip(item.getUip())
+                            .build();
+                    daily.add(accessDailyRespDTO);
+                }, () -> {  // 没有就补0
+                    ShortLinkStatsAccessDailyRespDTO accessDailyRespDTO = ShortLinkStatsAccessDailyRespDTO.builder()
+                            .date(DateUtil.parse(each))
+                            .pv(0)
+                            .uv(0)
+                            .uip(0)
+                            .build();
+                    daily.add(accessDailyRespDTO);
+                }));
 
         // 小时访问详情，根据小时进行分组
         List<Integer> hourStats = new ArrayList<>();    // oneShortLinkStats接口需要返回的列表DTO
@@ -79,8 +116,18 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
         // 老访客：在requestParam的 startDate 之前访问过，且在 [startDate, endDate] 内也访问过
         List<ShortLinkStatsUvRespDTO> uvTypeStats = new ArrayList<>();      // oneShortLinkStats接口需要返回的列表DTO
         HashMap<String, Object> findUvTypeByShortLink = linkAccessLogsMapper.findUvTypeCntByShortLink(requestParam);
-        int oldUserCnt = Integer.parseInt(findUvTypeByShortLink.get("oldUserCnt").toString());  // findUvTypeByShortLink.get("oldUserCnt")返回的是Object类型，因为HashMap<String, Object>，所以转成toString()安全
-        int newUserCnt = Integer.parseInt(findUvTypeByShortLink.get("newUserCnt").toString());
+        int oldUserCnt = Integer.parseInt(
+                Optional.ofNullable(findUvTypeByShortLink)
+                        .map(each -> each.get("oldUserCnt"))
+                        .map(Object::toString)  // findUvTypeByShortLink.get("oldUserCnt")返回的是Object类型，因为HashMap<String, Object>，所以转成toString()安全
+                        .orElse("0")
+        );
+        int newUserCnt = Integer.parseInt(
+                Optional.ofNullable(findUvTypeByShortLink)
+                        .map(each -> each.get("newUserCnt"))
+                        .map(Object::toString)
+                        .orElse("0")
+        );
         int uvSum = oldUserCnt + newUserCnt;
         double oldRatio = (double) oldUserCnt / uvSum;
         double actualOldRatio = Math.round(oldRatio * 100.0) / 100.0;
@@ -190,7 +237,7 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
 
         // pv uv uip字段呢
         return ShortLinkStatsRespDTO.builder()
-                .daily(BeanUtil.copyToList(listDayStatsByShortLink, ShortLinkStatsAccessDailyRespDTO.class))
+                .daily(daily)
                 .localeCnStats(localeCnStats)
                 .hourStats(hourStats)
                 .topIpStats(topIpStats)

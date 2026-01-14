@@ -34,6 +34,7 @@ public class ShortLinkStatsRespDTO {
     /**
      * 基础访问详情（日粒度）
      * 在这个时间段的每日pv uv uip，和上面三个不同，上面的是这个时间段总的数据
+     * 注意：返回List是ShortLinkStatsReqDTO的开始日期到结束日期这之间的所有日期的pv uv uip，如果某一天没有访问数据，也要返回0，以便展示每天的折线图
      */
     private List<ShortLinkStatsAccessDailyRespDTO> daily;
 
