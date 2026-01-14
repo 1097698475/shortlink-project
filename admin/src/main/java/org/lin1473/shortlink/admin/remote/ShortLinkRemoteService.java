@@ -1,5 +1,6 @@
 package org.lin1473.shortlink.admin.remote;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.TypeReference;
@@ -9,6 +10,7 @@ import org.lin1473.shortlink.admin.remote.dto.req.*;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkCreateRespDTO;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkGroupCountQueryRespDTO;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkPageRespDTO;
+import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkStatsRespDTO;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.HashMap;
@@ -136,5 +138,17 @@ public interface ShortLinkRemoteService {
      */
     default void removeRecycleBin(RecycleBinRemoveReqDTO requestParam) {
         HttpUtil.post("http://127.0.0.1:8001/api/short-link/v1/recycle-bin/remove", JSON.toJSONString(requestParam));
+    }
+
+    /**
+     * 访问单个短链接指定时间内监控数据
+     *
+     * @param requestParam 访问短链接监控请求参数
+     * @return 短链接监控信息
+     */
+    default Result<ShortLinkStatsRespDTO> oneShortLinkStats(ShortLinkStatsReqDTO requestParam) {
+        String resultBodyStr = HttpUtil.get("http://127.0.0.1:8001/api/short-link/v1/stats", BeanUtil.beanToMap(requestParam));
+        return JSON.parseObject(resultBodyStr, new TypeReference<>() {
+        });
     }
 }

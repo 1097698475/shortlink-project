@@ -1,4 +1,4 @@
-package org.lin1473.shortlink.project.dto.resp;
+package org.lin1473.shortlink.admin.remote.dto.resp;
 
 
 import com.fasterxml.jackson.annotation.JsonFormat;
