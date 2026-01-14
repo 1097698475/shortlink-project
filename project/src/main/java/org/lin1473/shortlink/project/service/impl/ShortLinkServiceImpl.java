@@ -356,7 +356,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                 addResponseCookieTask.run();
             }
             // 统计UIP，和uv差不多，ip相同的请求，多次访问，uip不会变。尝试添加redis，第一次添加 added=1，此时flag=true；否则added=0, flag=false
-            String remoteAddr = LinkUtil.getActualIp((HttpServletRequest) request);
+            String remoteAddr = LinkUtil.getActualIp((HttpServletRequest) request);     // 单独抽出来变量，AccessLogs日志表需要
             Long uipAdded = stringRedisTemplate.opsForSet().add("short-link:stats:uip:" + fullShortUrl, remoteAddr);
             boolean uipFirstFlag = uipAdded != null && uipAdded > 0L;
 
@@ -391,14 +391,16 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             localeParamMap.put("ip", remoteAddr);   // 接口只有一个参数
             String localeResultStr = HttpUtil.get(IP2LOCATION_REMOTE_URL, localeParamMap);  // 发起GET请求，自动拼接成 https://api.ip2location.io/?ip=xxx
             JSONObject localeResultObj = JSON.parseObject(localeResultStr);
+            String actualProvince = null;  // 单独抽出来变量，AccessLogs日志表需要
+            String actualCity = null;      // 单独抽出来变量，AccessLogs日志表需要
             // 如果请求成功
             String country = localeResultObj.getString("country_name"); // 请求失败不会有country_name字段
             if (StrUtil.isNotBlank(country) || "127.0.0.1".equals(remoteAddr) || "::1".equals(remoteAddr)) {
-                boolean unknownFlag = StrUtil.equals(country, "null") || country == null;  //
+                boolean unknownFlag = StrUtil.equals(country, "null") || country == null;
                 LinkLocaleStatsDO linkLocaleStatsDO = LinkLocaleStatsDO.builder()
-                        .country(unknownFlag ? "未知" : country)
-                        .province(unknownFlag ? "未知" : localeResultObj.getString("region_name"))
-                        .city(unknownFlag ? "未知" : localeResultObj.getString("city_name"))
+                        .country("中国")  // 只做国内
+                        .province(actualProvince = unknownFlag ? "未知" : localeResultObj.getString("region_name"))
+                        .city(actualCity = unknownFlag ? "未知" : localeResultObj.getString("city_name"))
                         .adcode(unknownFlag ? "未知" : localeResultObj.getString("zip_code"))   // 其实zip_code是邮编，adcode是城市编码，不一样
                         .cnt(1)
                         .fullShortUrl(fullShortUrl)
@@ -409,7 +411,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             }
 
             // 统计请求设备的操作系统，使用 request.getHeader("User-Agent")
-            String os = LinkUtil.getOs(((HttpServletRequest) request));
+            String os = LinkUtil.getOs(((HttpServletRequest) request));     // 单独抽出来变量，AccessLogs日志表需要
             LinkOsStatsDO linkOsStatsDO = LinkOsStatsDO.builder()
                     .os(os)
                     .cnt(1)
@@ -420,7 +422,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             linkOsStatsMapper.shortLinkOsStats(linkOsStatsDO);
 
             // 统计请求的浏览器
-            String browser = LinkUtil.getBrowser(((HttpServletRequest) request));
+            String browser = LinkUtil.getBrowser(((HttpServletRequest) request));       // 单独抽出来变量，AccessLogs日志表需要
             LinkBrowserStatsDO linkBrowserStatsDO = LinkBrowserStatsDO.builder()
                     .browser(browser)
                     .cnt(1)
@@ -430,20 +432,10 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .build();
             linkBrowserStatsMapper.shortLinkBrowserStats(linkBrowserStatsDO);
 
-            // 统计高频访问IP，业务逻辑直接在访问日志表写mysql
-            LinkAccessLogsDO linkAccessLogsDO = LinkAccessLogsDO.builder()
-                    .user(uv.get())     // 是cookie的标识，不是用户名
-                    .ip(remoteAddr)
-                    .browser(browser)
-                    .os(os)
-                    .gid(gid)
-                    .fullShortUrl(fullShortUrl)
-                    .build();
-            linkAccessLogsMapper.insert(linkAccessLogsDO);
-
             // 统计访问设备
+            String device = LinkUtil.getDevice(((HttpServletRequest) request));     // 单独抽出来变量，AccessLogs日志表需要
             LinkDeviceStatsDO linkDeviceStatsDO = LinkDeviceStatsDO.builder()
-                    .device(LinkUtil.getDevice(((HttpServletRequest) request)))
+                    .device(device)
                     .cnt(1)
                     .gid(gid)
                     .fullShortUrl(fullShortUrl)
@@ -452,8 +444,9 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
             linkDeviceStatsMapper.shortLinkDeviceStats(linkDeviceStatsDO);
 
             // 统计访问网络，是wifi还是移动数据
+            String network = LinkUtil.getNetwork(((HttpServletRequest) request));   // 单独抽出来变量，AccessLogs日志表需要
             LinkNetworkStatsDO linkNetworkStatsDO = LinkNetworkStatsDO.builder()
-                    .network(LinkUtil.getNetwork(((HttpServletRequest) request)))
+                    .network(network)
                     .cnt(1)
                     .gid(gid)
                     .fullShortUrl(fullShortUrl)
@@ -461,6 +454,20 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .build();
             linkNetworkStatsMapper.shortLinkNetworkStats(linkNetworkStatsDO);
 
+            // 统计高频访问IP，业务逻辑直接在访问日志表写mysql
+            // 将所有关键字段加进日志表里面
+            LinkAccessLogsDO linkAccessLogsDO = LinkAccessLogsDO.builder()
+                    .user(uv.get())     // 是cookie的标识，不是用户名
+                    .ip(remoteAddr)
+                    .browser(browser)
+                    .os(os)
+                    .network(network)
+                    .device(device)
+                    .locale(StrUtil.join("-", "中国", actualProvince, actualCity))
+                    .gid(gid)
+                    .fullShortUrl(fullShortUrl)
+                    .build();
+            linkAccessLogsMapper.insert(linkAccessLogsDO);
 
 
         } catch (Throwable ex) {
