@@ -1,15 +1,17 @@
 package org.lin1473.shortlink.project.service.impl;
 
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateField;
 import cn.hutool.core.date.DateUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
-import org.lin1473.shortlink.project.dao.entity.LinkBaseStatsDO;
-import org.lin1473.shortlink.project.dao.entity.LinkDeviceStatsDO;
-import org.lin1473.shortlink.project.dao.entity.LinkLocaleStatsDO;
-import org.lin1473.shortlink.project.dao.entity.LinkNetworkStatsDO;
+import org.lin1473.shortlink.project.dao.entity.*;
 import org.lin1473.shortlink.project.dao.mapper.*;
+import org.lin1473.shortlink.project.dto.req.ShortLinkStatsAccessRecordReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 import org.lin1473.shortlink.project.dto.resp.*;
 import org.lin1473.shortlink.project.service.ShortLinkStatsService;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * 短链接监控接口实现层
@@ -249,5 +252,69 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                 .networkStats(networkStats)
                 .build();
     }
+
+    @Override
+    public IPage<ShortLinkStatsAccessRecordRespDTO> shortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
+        // ① 构造分页查询条件
+        LambdaQueryWrapper<LinkAccessLogsDO> queryWrapper =
+                Wrappers.lambdaQuery(LinkAccessLogsDO.class)
+                        .eq(LinkAccessLogsDO::getGid, requestParam.getGid())
+                        .eq(LinkAccessLogsDO::getFullShortUrl, requestParam.getFullShortUrl())
+                        .ge(LinkAccessLogsDO::getCreateTime, requestParam.getStartDate())
+                        .le(LinkAccessLogsDO::getCreateTime, requestParam.getEndDate())     // between
+                        .eq(LinkAccessLogsDO::getDelFlag, 0)
+                        .orderByDesc(LinkAccessLogsDO::getCreateTime);
+
+        // ② 分页查询（重点：ReqDTO 本身就是 Page，里面有pageNo和pageSize）
+        // 将分页参数传入分页拦截器，然后selectPage执行sql语句，结果封装成IPage
+        IPage<LinkAccessLogsDO> pageResult =
+                linkAccessLogsMapper.selectPage(requestParam, queryWrapper);
+
+        // ③ DO → RespDTO
+        // 为什么碰巧能转换？如果是LinkBaseStatsDO还能转换吗
+        IPage<ShortLinkStatsAccessRecordRespDTO> respPage =
+                pageResult.convert(each ->
+                        BeanUtil.toBean(each, ShortLinkStatsAccessRecordRespDTO.class)
+                );
+
+        // ④ 收集 uvCookie，selectUvTypeByUsers需要的参数
+        List<String> userList = respPage.getRecords().stream()
+                .map(ShortLinkStatsAccessRecordRespDTO::getUser)
+                .distinct()     // 去重
+                .toList();
+
+        // 判空
+        if (!CollUtil.isEmpty(userList)) {
+
+            // 调用mapper接口，根据uvCookie（userList）判断访客类型
+            List<Map<String, Object>> uvTypeList =
+                    linkAccessLogsMapper.selectUvTypeByUsers(
+                            requestParam.getGid(),
+                            requestParam.getFullShortUrl(),
+                            requestParam.getStartDate(),
+                            requestParam.getEndDate(),
+                            userList
+                    );
+
+            // 转为Map，比uvTypeList.stream().filter匹配快很多（respPage时间复杂度o(M), uvTypeList去重时间复杂度o(N)，一共o(M*N））
+            Map<String, String> uvTypeMap = uvTypeList.stream()
+                    .collect(Collectors.toMap(
+                       item -> (String) item.get("user"),
+                            item-> (String) item.get("uvType")
+                    ));
+
+            // ⑤ 回填 uvType
+            // 逻辑应该是：uvTypeList是一个去重的访客类型列表，每个each.getUser()匹配到uvTypeList的item.get("user")，然后拿出它的访客类型
+            // 再添加到respPage分页对象的uvType对应字段。
+            // 一个user/uvCookie是不是新访客，是相对于这个requestParam日期的。如果在这个日期内第一次访问是新访客，那么就算有多次访问，之后的记录也记他为新访客。是静态的
+            respPage.getRecords().forEach(each -> {
+                String uvType = uvTypeMap.getOrDefault(each.getUser(), "老访客");   // 查询key
+                each.setUvType(uvType);
+            });
+        }
+
+        return respPage;
+    }
+
 }
 

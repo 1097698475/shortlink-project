@@ -34,6 +34,7 @@ public class LinkAccessLogsDO extends BaseDO {
 
     /**
      * 用户信息
+     * uvCookie
      */
     private String user;
 
@@ -64,6 +65,7 @@ public class LinkAccessLogsDO extends BaseDO {
 
     /**
      * 地区
+     * 中国-广东-广州
      */
     private String locale;
 }
