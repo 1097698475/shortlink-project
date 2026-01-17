@@ -15,4 +15,10 @@ public class ShortLinkPageReqDTO extends Page{
      * 分组标识
      */
     private String gid;
+
+    /**
+     * 排序标识
+     * 可以按照时间、今日/累计访问次数(pv)、今日/累计访问人数(uv)、今日/累计访问ip数(uip)排序
+     */
+    private String orderTag;
 }

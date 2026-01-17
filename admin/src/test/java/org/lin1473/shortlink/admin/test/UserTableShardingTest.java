@@ -2,19 +2,21 @@ package org.lin1473.shortlink.admin.test;
 
 public class UserTableShardingTest {
 
-    public static final String SQL="create table t_group_%d\n" +
+    public static final String SQL="create table t_link_stats_today_%d\n" +
             "(\n" +
-            "    id          bigint auto_increment comment 'ID'\n" +
+            "    id             bigint auto_increment comment 'ID'\n" +
             "        primary key,\n" +
-            "    gid         varchar(32)  null comment '分组标识',\n" +
-            "    name        varchar(64)  null comment '分组名称',\n" +
-            "    username    varchar(256) null comment '创建分组用户名',\n" +
-            "    sort_order  int          null comment '分组排序',\n" +
-            "    create_time datetime     null comment '创建时间',\n" +
-            "    update_time datetime     null comment '修改时间',\n" +
-            "    del_flag    tinyint(1)   null comment '删除标识 0：未删除 1：已删除',\n" +
-            "    constraint idx_unique_username_gid\n" +
-            "        unique (gid, username)\n" +
+            "    gid            varchar(32) default 'default' null comment '分组标识',\n" +
+            "    full_short_url varchar(128)                  null comment '完整短链接',\n" +
+            "    date           date                          null comment '日期',\n" +
+            "    today_pv       int         default 0         null comment '今日PV',\n" +
+            "    today_uv       int         default 0         null comment '今日UV',\n" +
+            "    today_uip      int         default 0         null comment '今日IP数',\n" +
+            "    create_time    datetime                      null comment '创建时间',\n" +
+            "    update_time    datetime                      null comment '修改时间',\n" +
+            "    del_flag       tinyint(1)                    null comment '删除标识 0：未删除 1：已删除',\n" +
+            "    constraint idx_unique_full_short_url\n" +
+            "        unique (full_short_url)\n" +
             ")\n" +
             "    charset = utf8mb4;";
 
