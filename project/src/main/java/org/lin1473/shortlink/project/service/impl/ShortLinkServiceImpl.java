@@ -79,6 +79,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
     private final LinkAccessLogsMapper linkAccessLogsMapper;
     private final LinkDeviceStatsMapper linkDeviceStatsMapper;
     private final LinkNetworkStatsMapper linkNetworkStatsMapper;
+    private final LinkStatsTodayMapper linkStatsTodayMapper;
 
 
 
@@ -473,13 +474,24 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .build();
             linkAccessLogsMapper.insert(linkAccessLogsDO);
 
-            //
+            // 更新短链接表的历史累计数据字段
             shortLinkMapper.incrementStats(
                     gid,
                     fullShortUrl,
                     1,
                     uvFirstFlag.get() ? 1 : 0,  // incrementUv
                     uipFirstFlag ? 1 : 0);      // incrementUip
+
+            //
+            LinkStatsTodayDO linkStatsTodayDO = LinkStatsTodayDO.builder()
+                    .gid(gid)
+                    .fullShortUrl(fullShortUrl)
+                    .date(new Date())   // 当天日期 年月日
+                    .todayPv(1)
+                    .todayUv(uvFirstFlag.get() ? 1 : 0)
+                    .todayUip(uipFirstFlag ? 1 : 0)
+                    .build();
+            linkStatsTodayMapper.shortLinkTodayStats(linkStatsTodayDO);
 
 
         } catch (Throwable ex) {
