@@ -1,6 +1,8 @@
 package org.lin1473.shortlink.project.dao.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 import org.lin1473.shortlink.project.dao.entity.ShortLinkDO;
 
 /**
@@ -8,4 +10,26 @@ import org.lin1473.shortlink.project.dao.entity.ShortLinkDO;
  */
 public interface ShortLinkMapper extends BaseMapper<ShortLinkDO> {
 
+    /**
+     * 更新短链接表 访问统计自增
+     * 更新total_pv total_uv total_uip字段
+     */
+    @Update("""
+            update 
+                t_link 
+            set 
+                total_pv = total_pv + #{incrementPv}, 
+                total_uv = total_uv + #{incrementUv}, 
+                total_uip = total_uip + #{incrementUip}
+            where 
+                gid = #{gid} 
+                and full_short_url = #{fullShortUrl}
+            """)
+    void incrementStats(
+            @Param("gid") String gid,
+            @Param("fullShortUrl") String fullShortUrl,
+            @Param("incrementPv") Integer incrementPv,
+            @Param("incrementUv") Integer incrementUv,
+            @Param("incrementUip") Integer incrementUip
+    );
 }

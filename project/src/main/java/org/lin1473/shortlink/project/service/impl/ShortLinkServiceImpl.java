@@ -68,6 +68,7 @@ import static org.lin1473.shortlink.project.common.constant.ShortLinkConstant.IP
 public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLinkDO> implements ShortLinkService {
 
     private final RBloomFilter<String> shortUriCreateCachePenetrationBloomFilter;
+    private final ShortLinkMapper shortLinkMapper;
     private final ShortLinkGotoMapper shortLinkGotoMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final RedissonClient redissonClient;
@@ -471,6 +472,14 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
                     .fullShortUrl(fullShortUrl)
                     .build();
             linkAccessLogsMapper.insert(linkAccessLogsDO);
+
+            //
+            shortLinkMapper.incrementStats(
+                    gid,
+                    fullShortUrl,
+                    1,
+                    uvFirstFlag.get() ? 1 : 0,  // incrementUv
+                    uipFirstFlag ? 1 : 0);      // incrementUip
 
 
         } catch (Throwable ex) {
