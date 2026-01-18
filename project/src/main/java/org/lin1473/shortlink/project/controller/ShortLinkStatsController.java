@@ -37,6 +37,6 @@ public class ShortLinkStatsController {
      */
     @GetMapping("/api/short-link/v1/stats/access-record")
     public Result<IPage<ShortLinkStatsAccessRecordRespDTO>> shortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
-        return Results.success(shortLinkStatsService.shortLinkStatsAccessRecord(requestParam));
+        return Results.success(shortLinkStatsService.oneShortLinkStatsAccessRecord(requestParam));
     }
 }

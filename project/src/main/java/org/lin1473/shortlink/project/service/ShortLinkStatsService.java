@@ -28,7 +28,7 @@ public interface ShortLinkStatsService {
      * @param requestParam 获取短链接监控访问记录数据入参
      * @return 访问记录监控数据
      */
-    IPage<ShortLinkStatsAccessRecordRespDTO> shortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam);
+    IPage<ShortLinkStatsAccessRecordRespDTO> oneShortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam);
 
 }
 

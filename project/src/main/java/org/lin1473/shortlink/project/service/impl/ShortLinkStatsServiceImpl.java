@@ -265,7 +265,7 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
     }
 
     @Override
-    public IPage<ShortLinkStatsAccessRecordRespDTO> shortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
+    public IPage<ShortLinkStatsAccessRecordRespDTO> oneShortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
         // ① 构造分页查询条件
         LambdaQueryWrapper<LinkAccessLogsDO> queryWrapper =
                 Wrappers.lambdaQuery(LinkAccessLogsDO.class)

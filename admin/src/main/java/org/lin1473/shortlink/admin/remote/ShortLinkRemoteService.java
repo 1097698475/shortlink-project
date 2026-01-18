@@ -156,7 +156,7 @@ public interface ShortLinkRemoteService {
      * @param requestParam 获取短链接监控访问记录数据入参
      * @return 访问记录监控数据
      */
-    default Result<IPage<ShortLinkStatsAccessRecordRespDTO>> shortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
+    default Result<IPage<ShortLinkStatsAccessRecordRespDTO>> oneShortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
         Map<String, Object> stringObjectMap = BeanUtil.beanToMap(requestParam, false, true);
         stringObjectMap.remove("orders");
         stringObjectMap.remove("records");
