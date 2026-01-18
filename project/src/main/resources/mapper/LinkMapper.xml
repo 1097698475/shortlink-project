@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.lin1473.shortlink.project.dao.mapper.ShortLinkMapper">
+
+    <!-- 分页查询短链接 -->
+    <!-- 这一行对应的函数名：
+        IPage<ShortLinkDO> selectPageLink(ShortLinkPageReqDTO requestParam)
+        需要注意：resultType是select的每一行记录映射成什么对象，Mapper层才考虑Page对象
+    -->
+    <select id="selectPageLink" parameterType="org.lin1473.shortlink.project.dto.req.ShortLinkPageReqDTO"
+            resultType="org.lin1473.shortlink.project.dao.entity.ShortLinkDO">
+        SELECT t.*,
+            COALESCE(s.today_pv, 0) AS todayPv,     # LEFT JOIN 连不上的时候，s.today_pv 是 null，前端不希望看到null，所以修改为0
+            COALESCE(s.today_uv, 0) AS todayUv,     # COALESCE(a, b) 的意思是：如果 a 是 null，就用 b
+            COALESCE(s.today_uip, 0) AS todayUip
+        FROM t_link t
+        LEFT JOIN t_link_stats_today s      # 左表为主合并两个表，右表根据on字段匹配左表，匹配不上的字段为null
+            ON t.gid = s.gid
+            AND t.full_short_url = s.full_short_url
+            AND s.date = CURDATE()      # 只把“右表中属于今天的统计数据”拿来做关联
+        WHERE t.gid = #{gid}        # 筛选左表的条件, select *
+            AND t.enable_status = 0
+            AND t.del_flag = 0
+#         根据parameterType参数的orderTag排序
+        <choose>
+            <when test="orderTag == 'todayPv'">
+                ORDER BY todayPv DESC
+            </when>
+            <when test="orderTag == 'todayUv'">
+                ORDER BY todayUv DESC
+            </when>
+            <when test="orderTag == 'todayUip'">
+                ORDER BY todayUip DESC
+            </when>
+            <when test="orderTag == 'totalPv'">
+                ORDER BY t.total_pv DESC
+            </when>
+            <when test="orderTag == 'totalUv'">
+                ORDER BY t.total_uv DESC
+            </when>
+            <when test="orderTag == 'totalUip'">
+                ORDER BY t.total_uip DESC
+            </when>
+            <otherwise>
+                ORDER BY t.create_time DESC     # 默认使用create_time排序
+            </otherwise>
+        </choose>
+    </select>
+</mapper>

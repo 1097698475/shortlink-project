@@ -49,6 +49,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.net.ssl.SSLHandshakeException;
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.*;
@@ -210,12 +212,7 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
 
     @Override
     public IPage<ShortLinkPageRespDTO> pageShortLink(ShortLinkPageReqDTO requestParam) {
-        LambdaQueryWrapper<ShortLinkDO> queryWrapper = Wrappers.lambdaQuery(ShortLinkDO.class)
-                .eq(ShortLinkDO::getGid, requestParam.getGid())
-                .eq(ShortLinkDO::getEnableStatus, 0)
-                .eq(ShortLinkDO::getDelFlag, 0)
-                .orderByDesc(ShortLinkDO::getCreateTime);
-        IPage<ShortLinkDO> resultPage = baseMapper.selectPage(requestParam, queryWrapper);
+        IPage<ShortLinkDO> resultPage = shortLinkMapper.selectPageLink(requestParam);
         return resultPage.convert(each -> {
             ShortLinkPageRespDTO result = BeanUtil.toBean(each, ShortLinkPageRespDTO.class);    // 查询到的该分组标识gid下的t_link记录
             result.setDomain("http://" + result.getDomain());   // 单独设置domain字段，将协议类型加进去
@@ -532,18 +529,46 @@ public class ShortLinkServiceImpl extends ServiceImpl<ShortLinkMapper, ShortLink
      */
     @SneakyThrows
     private String getFavicon(String url) {
-        URL targetUrl = new URL(url);
-        HttpURLConnection connection = (HttpURLConnection) targetUrl.openConnection();
-        connection.setRequestMethod("GET");
-        connection.connect();
-        int responseCode = connection.getResponseCode();
-        if (HttpURLConnection.HTTP_OK == responseCode) {
-            Document document = Jsoup.connect(url).get();
+        try {
+            // 强制使用 TLS 1.2 / 1.3（可选，针对部分旧服务器握手失败）
+            System.setProperty("https.protocols", "TLSv1.2,TLSv1.3");
+
+            // 先判断 URL 是否可访问
+            HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(3000); // 3秒超时
+            connection.setReadTimeout(3000);
+            connection.connect();
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                return null; // 请求失败，直接返回
+            }
+
+            // 使用 Jsoup 解析 HTML
+            Document document = Jsoup.connect(url)
+                    .timeout(3000)
+                    .ignoreHttpErrors(true)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)") // 模拟浏览器
+                    .get();
+
             Element faviconLink = document.select("link[rel~=(?i)^(shortcut )?icon]").first();
             if (faviconLink != null) {
                 return faviconLink.attr("abs:href");
             }
+
+        } catch (SSLHandshakeException e) {
+            // SSL 握手失败，不影响业务
+            System.err.println("SSLHandshakeException: " + url + "，返回默认图标");
+        } catch (IOException e) {
+            // 网络异常、超时等
+            System.err.println("IOException: " + url + "，返回默认图标");
+        } catch (Exception e) {
+            // 其他异常兜底
+            System.err.println("Unexpected exception: " + url + "，返回默认图标");
         }
-        return null;
+
+        // 返回默认 favicon 或 null
+        return "/favicon.ico";
     }
 }

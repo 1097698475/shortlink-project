@@ -102,4 +102,27 @@ public class ShortLinkDO extends BaseDO {
      */
     private Integer totalUip;
 
+    /**
+     * 逻辑字段 exist = false，这三个字段不真实存在于数据库表
+     * 我们调用分页查询短链接接口时，需要查询t_link表，同时合并left join t_link_stats_today表，最终返回的结果会多出这三个字段给前端
+     */
+
+    /**
+     * 今日PV
+     */
+    @TableField(exist = false)
+    private Integer todayPv;
+
+    /**
+     * 今日UV
+     */
+    @TableField(exist = false)
+    private Integer todayUv;
+
+    /**
+     * 今日UIP
+     */
+    @TableField(exist = false)
+    private Integer todayUip;
+
 }

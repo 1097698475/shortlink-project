@@ -17,11 +17,15 @@ spring:
       prefix: /templates/
       suffix: .html
 
-# 配置mybatis-plus软删除
 mybatis-plus:
+  # 配置mybatis-plus软删除
   global-config:
     db-config:
       logic-delete-field: delFlag
       logic-delete-value: 1
       logic-not-delete-value: 0
       id-type: auto
+  # 配置mybatis-plus 扫描地址
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  mapper-locations: classpath:mapper/*.xml

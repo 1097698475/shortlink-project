@@ -43,7 +43,7 @@ public interface ShortLinkRemoteService {
     }
 
     /**
-     * 分页查询短链接
+     * 分页查询该用户的短链接
      *
      * @param requestParam 分页短链接请求参数
      * @return 查询短链接响应
@@ -52,6 +52,7 @@ public interface ShortLinkRemoteService {
         //Get http方法，param有三个参数，用map拼接
         Map<String, Object> requestMap = new HashMap<>();
         requestMap.put("gid", requestParam.getGid());
+        requestMap.put("orderTag", requestParam.getOrderTag());
         requestMap.put("current", requestParam.getCurrent());
         requestMap.put("size", requestParam.getSize());
         // 使用get方法调用短链接中心的接口（8001是中心，8002是后管），接口的响应DTO返回为String格式的json

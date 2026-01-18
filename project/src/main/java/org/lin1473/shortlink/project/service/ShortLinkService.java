@@ -35,7 +35,8 @@ public interface ShortLinkService extends IService<ShortLinkDO> {
     void updateShortLink(ShortLinkUpdateReqDTO requestParam);
 
     /**
-     * 分页查询短链接
+     * 分页查询该用户的短链接
+     * 在首页展示
      *
      * @param requestParam 分页查询短链接请求参数
      * @return 短链接分页返回结果

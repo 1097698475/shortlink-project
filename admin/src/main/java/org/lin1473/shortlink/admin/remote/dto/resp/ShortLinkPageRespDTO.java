@@ -91,7 +91,7 @@ public class ShortLinkPageRespDTO {
     /**
      * 历史累计UIP
      */
-    private Integer totalUIp;
+    private Integer totalUip;
 
     /**
      * 今日UIP
