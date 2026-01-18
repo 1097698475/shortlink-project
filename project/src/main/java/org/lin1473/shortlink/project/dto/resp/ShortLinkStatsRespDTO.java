@@ -16,18 +16,19 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ShortLinkStatsRespDTO {
+
     /**
-     * 访问量
+     * 在指定日期内的访问量
      */
     private Integer pv;
 
     /**
-     * 独立访客数
+     * 在指定日期内的独立访客数
      */
     private Integer uv;
 
     /**
-     * 独立IP数
+     * 在指定日期内的独立IP数
      */
     private Integer uip;
 
@@ -45,8 +46,8 @@ public class ShortLinkStatsRespDTO {
     private List<Integer> hourStats;
 
     /**
-     * 一周访问详情
-     * 在这个时间段内，每周的访问量（需要计算有多少周）
+     * 一周七天访问详情
+     * 在这个时间段内，按照每周七天统计访问量，返回List大小为7
      */
     private List<Integer> weekdayStats;
 

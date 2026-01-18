@@ -77,6 +77,14 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                     daily.add(accessDailyRespDTO);
                 }));
 
+        // 已经拿到日粒度统计，把pv uv uip累加，得到指定日期内的总量
+        int totalPv = 0, totalUv = 0, totalUip = 0;
+        for (LinkBaseStatsDO stats : listDayStatsByShortLink) {
+            totalPv += stats.getPv() != null ? stats.getPv() : 0;
+            totalUv += stats.getUv() != null ? stats.getUv() : 0;
+            totalUip += stats.getUip() != null ? stats.getUip() : 0;
+        }
+
         // 小时访问详情，根据小时进行分组
         List<Integer> hourStats = new ArrayList<>();    // oneShortLinkStats接口需要返回的列表DTO
         List<LinkBaseStatsDO> listHourStatsByShortLink = linkBaseStatsMapper.listHourStatsByShortLink(requestParam);    // select hour sum(pv) group by hour
@@ -238,8 +246,11 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
             networkStats.add(networkRespDTO);
         });
 
-        // pv uv uip字段呢
+
         return ShortLinkStatsRespDTO.builder()
+                .pv(totalPv)
+                .uv(totalUv)
+                .uip(totalUip)
                 .daily(daily)
                 .localeCnStats(localeCnStats)
                 .hourStats(hourStats)
@@ -260,8 +271,8 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                 Wrappers.lambdaQuery(LinkAccessLogsDO.class)
                         .eq(LinkAccessLogsDO::getGid, requestParam.getGid())
                         .eq(LinkAccessLogsDO::getFullShortUrl, requestParam.getFullShortUrl())
-                        .ge(LinkAccessLogsDO::getCreateTime, requestParam.getStartDate())
-                        .le(LinkAccessLogsDO::getCreateTime, requestParam.getEndDate())     // between
+                        .ge(LinkAccessLogsDO::getCreateTime, requestParam.getStartDate())   // 日期在这之中
+                        .le(LinkAccessLogsDO::getCreateTime, requestParam.getEndDate() + " 23:59:59")     // createTime精确到时分秒，但传入参数没有，如果不添加时分秒，会自动转化为create_time <= '2026-01-18 00:00:00'，查不到当天的数据
                         .eq(LinkAccessLogsDO::getDelFlag, 0)
                         .orderByDesc(LinkAccessLogsDO::getCreateTime);
 

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.lin1473.shortlink.project.dao.entity.LinkAccessLogsDO;
+import org.lin1473.shortlink.project.dao.entity.LinkBaseStatsDO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 
 import java.util.HashMap;
@@ -91,7 +92,7 @@ public interface LinkAccessLogsMapper extends BaseMapper<LinkAccessLogsDO> {
                 ) AS newUserCnt
             FROM (
                     SELECT
-                        user
+                        user,
                         MAX(CASE WHEN Date(create_time) < #{param.startDate} THEN 1 ELSE 0 END) AS has_before,
                         MAX(CASE WHEN Date(create_time) BETWEEN #{param.startDate} AND #{param.endDate} THEN 1 ELSE 0 END) AS has_in_range
                     FROM t_link_access_logs
@@ -147,4 +148,22 @@ public interface LinkAccessLogsMapper extends BaseMapper<LinkAccessLogsDO> {
             @Param("endDate") String endDate,
             @Param("userList") List<String> userList
     );
+
+
+    /**
+     * 根据短链接获取指定日期内PV、UV、UIP数据
+     */
+    @Select("SELECT " +
+            "    COUNT(user) AS pv, " +
+            "    COUNT(DISTINCT user) AS uv, " +
+            "    COUNT(DISTINCT ip) AS uip " +
+            "FROM " +
+            "    t_link_access_logs " +
+            "WHERE " +
+            "    full_short_url = #{param.fullShortUrl} " +
+            "    AND gid = #{param.gid} " +
+            "    AND create_time BETWEEN #{param.startDate} and #{param.endDate} " +
+            "GROUP BY " +
+            "    full_short_url, gid;")
+    LinkBaseStatsDO findPvUvUipStatsByShortLink(@Param("param") ShortLinkStatsReqDTO requestParam);
 }
