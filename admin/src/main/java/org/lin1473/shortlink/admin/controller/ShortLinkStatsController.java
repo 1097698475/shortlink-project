@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import lombok.RequiredArgsConstructor;
 import org.lin1473.shortlink.admin.common.convention.result.Result;
 import org.lin1473.shortlink.admin.remote.ShortLinkRemoteService;
+import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkStatsAccessRecordReqDTO;
 import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkStatsReqDTO;
+import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkGroupStatsRespDTO;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkStatsAccessRecordRespDTO;
 import org.lin1473.shortlink.admin.remote.dto.resp.ShortLinkStatsRespDTO;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,9 +30,19 @@ public class ShortLinkStatsController {
      * 访问单个短链接指定时间内监控数据
      */
     @GetMapping("/api/short-link/admin/v1/stats")
-    public Result<ShortLinkStatsRespDTO> shortLinkStats(ShortLinkStatsReqDTO requestParam) {
+    public Result<ShortLinkStatsRespDTO> ontShortLinkStats(ShortLinkStatsReqDTO requestParam) {
         return shortLinkRemoteService.oneShortLinkStats(requestParam);
     }
+
+    /**
+     * 获取指定日期内分组内的短链接监控统计数据
+     * 以一个分组粒度进行统计，返回的不是list，而是分组内短链接的总和统计数据
+     */
+    @GetMapping("/api/short-link/admin/v1/stats/group")
+    public Result<ShortLinkGroupStatsRespDTO> groupShortLinkStats(ShortLinkGroupStatsReqDTO requestParam) {
+        return shortLinkRemoteService.groupShortLinkStats(requestParam);
+    }
+
 
     /**
      * 单个短链接指定时间内的访问记录数据

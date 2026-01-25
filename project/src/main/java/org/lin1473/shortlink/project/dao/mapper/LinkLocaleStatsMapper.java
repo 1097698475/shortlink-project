@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.lin1473.shortlink.project.dao.entity.LinkLocaleStatsDO;
+import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 
 import java.util.List;
@@ -82,5 +83,30 @@ public interface LinkLocaleStatsMapper extends BaseMapper<LinkLocaleStatsDO> {
                 province
             """)
     List<LinkLocaleStatsDO> listLocaleByShortLink(@Param("param") ShortLinkStatsReqDTO requestParam);
+
+    /**
+     * 查询指定分组在指定日期范围内的省份访问统计
+     *
+     * SQL 功能说明：
+     * - SUM(cnt)：按省份对访问量累加，和pv一个意思
+     * - GROUP BY province：按省份统计
+     * - 用于分析分组内所有短链接在各省份的访问分布
+     *
+     * @param requestParam 请求参数：gid、startDate、endDate
+     * @return 每个省份访问量列表 由于只select了province和sum(cnt)，所以一个LinkLocaleStatsDO只有这两个字段有值，其他为null
+     */
+    @Select("""
+            SELECT
+                province,
+                SUM(cnt) AS cnt
+            FROM
+                t_link_locale_stats
+            WHERE
+                gid = #{param.gid}
+                AND date BETWEEN #{param.startDate} AND #{param.endDate}
+            GROUP BY
+                province
+            """)
+    List<LinkLocaleStatsDO> listLocaleByGroup(@Param("param") ShortLinkGroupStatsReqDTO requestParam);
 
 }

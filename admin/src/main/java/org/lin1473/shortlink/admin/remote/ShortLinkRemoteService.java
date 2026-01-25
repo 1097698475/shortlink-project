@@ -151,6 +151,19 @@ public interface ShortLinkRemoteService {
     }
 
     /**
+     * 获取指定日期内分组内的短链接监控统计数据
+     * 以一个分组粒度进行统计，返回的不是list，而是分组内短链接的总和统计数据
+     *
+     * @param requestParam 访分组问短链接监控请求参数
+     * @return 分组短链接监控信息
+     */
+    default Result<ShortLinkGroupStatsRespDTO> groupShortLinkStats(ShortLinkGroupStatsReqDTO requestParam) {
+        String resultBodyStr = HttpUtil.get("http://127.0.0.1:8001/api/short-link/v1/stats/group", BeanUtil.beanToMap(requestParam));
+        return JSON.parseObject(resultBodyStr, new TypeReference<>() {
+        });
+    }
+
+    /**
      * 获取单个短链接指定时间内的访问记录数据
      *
      * @param requestParam 获取短链接监控访问记录数据入参

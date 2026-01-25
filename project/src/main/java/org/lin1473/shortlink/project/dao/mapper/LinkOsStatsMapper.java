@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.lin1473.shortlink.project.dao.entity.LinkOsStatsDO;
+import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 
 import java.util.HashMap;
@@ -83,5 +84,33 @@ public interface LinkOsStatsMapper extends BaseMapper<LinkOsStatsDO> {
         """)
     List<HashMap<String, Object>> listOsStatsByShortLink(@Param("param") ShortLinkStatsReqDTO requestParam);
 
-
+    /**
+     * 查询指定分组在指定日期范围内的操作系统访问统计
+     *
+     * SQL 功能说明：
+     * - SUM(cnt)：对相同操作系统的访问次数进行累加
+     *
+     * @param requestParam 请求参数：fullShortUrl、gid、startDate、endDate
+     * @return 操作系统访问统计列表，映射为哈希表每条记录包含：
+     *         - os：操作系统名称
+     *         - count：访问次数
+     *         映射成 List<HashMap<String, Object>>：
+     *  [
+     *   { "os": "Windows", "count": 120},
+     *   { "os": "Mac", "count": 50}
+     *  ]
+     */
+    @Select("""
+        SELECT
+            os,
+            SUM(cnt) AS count
+        FROM
+            t_link_os_stats
+        WHERE
+            gid = #{param.gid}
+            AND date BETWEEN #{param.startDate} AND #{param.endDate}
+        GROUP BY
+            os
+        """)
+    List<HashMap<String, Object>> listOsStatsByGroup(@Param("param") ShortLinkGroupStatsReqDTO requestParam);
 }

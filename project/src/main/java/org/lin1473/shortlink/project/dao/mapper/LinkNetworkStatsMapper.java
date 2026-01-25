@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.lin1473.shortlink.project.dao.entity.LinkNetworkStatsDO;
+import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 
 import java.util.List;
@@ -81,4 +82,31 @@ public interface LinkNetworkStatsMapper extends BaseMapper<LinkNetworkStatsDO> {
         """)
     List<LinkNetworkStatsDO> listNetworkStatsByShortLink(@Param("param") ShortLinkStatsReqDTO requestParam);
 
+    /**
+     * 查询指定分组在指定日期范围内的访问网络环境统计
+     *
+     * SQL 功能说明：
+     * - SUM(cnt)：对相同网络环境的访问次数进行累加
+     * - GROUP BY network：按网络类型维度进行聚合
+     * - 常用于分析 WiFi、4G、5G 等网络环境的访问占比
+     *
+     * @param requestParam 请求参数：gid、startDate、endDate
+     * @return 访问网络环境统计列表，每条记录包含：
+     *         - network：网络类型
+     *         - cnt：访问次数
+     *         - 其他字段为null（返回的是DO实体）
+     */
+    @Select("""
+        SELECT
+            network,
+            SUM(cnt) AS cnt
+        FROM
+            t_link_network_stats
+        WHERE
+            gid = #{param.gid}
+            AND date BETWEEN #{param.startDate} AND #{param.endDate}
+        GROUP BY
+            network
+        """)
+    List<LinkNetworkStatsDO> listNetworkStatsByGroup(@Param("param") ShortLinkGroupStatsReqDTO requestParam);
 }

@@ -5,9 +5,11 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import lombok.RequiredArgsConstructor;
 import org.lin1473.shortlink.project.common.convention.result.Result;
 import org.lin1473.shortlink.project.common.convention.result.Results;
+import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsAccessRecordReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 import org.lin1473.shortlink.project.dto.resp.ShortLinkStatsAccessRecordRespDTO;
+import org.lin1473.shortlink.project.dto.resp.ShortLinkGroupStatsRespDTO;
 import org.lin1473.shortlink.project.dto.resp.ShortLinkStatsRespDTO;
 import org.lin1473.shortlink.project.service.ShortLinkStatsService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,12 +25,21 @@ public class ShortLinkStatsController {
     private final ShortLinkStatsService shortLinkStatsService;
 
     /**
-     * 访问单个短链接指定时间内的监控统计数据
+     * 访问单个短链接指定日期内的监控统计数据
      * 前端用图表展示
      */
     @GetMapping("/api/short-link/v1/stats")
-    public Result<ShortLinkStatsRespDTO> shortLinkStats(ShortLinkStatsReqDTO shortLinkStatsReqDTO) {
+    public Result<ShortLinkStatsRespDTO> oneShortLinkStats(ShortLinkStatsReqDTO shortLinkStatsReqDTO) {
         return Results.success(shortLinkStatsService.oneShortLinkStats(shortLinkStatsReqDTO));
+    }
+
+    /**
+     * 获取指定日期内分组内的短链接监控统计数据
+     * 以一个分组粒度进行统计，返回的不是list，而是分组内短链接的总和统计数据
+     */
+    @GetMapping("/api/short-link/v1/stats/group")
+    public Result<ShortLinkGroupStatsRespDTO> groupShortLinkStats(ShortLinkGroupStatsReqDTO requestParam) {
+        return Results.success(shortLinkStatsService.groupShortLinkStats(requestParam));
     }
 
     /**

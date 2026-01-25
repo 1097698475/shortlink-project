@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.lin1473.shortlink.project.dao.entity.LinkBrowserStatsDO;
+import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 
 import java.util.HashMap;
@@ -83,6 +84,37 @@ public interface LinkBrowserStatsMapper extends BaseMapper<LinkBrowserStatsDO> {
             browser
         """)
     List<HashMap<String, Object>> listBrowserStatsByShortLink(@Param("param") ShortLinkStatsReqDTO requestParam);
+
+    /**
+     * 查询指定分组在指定日期范围内的浏览器访问统计
+     *
+     * SQL 功能说明：
+     * - SUM(cnt)：对相同浏览器的访问次数进行累加
+     * - 用于分析不同浏览器的访问占比情况
+     *
+     * @param requestParam 请求参数：gid、startDate、endDate
+     * @return 浏览器访问统计列表，每条记录包含：
+     *         - browser：浏览器类型
+     *         - count：访问次数
+     *         映射成 List<HashMap<String, Object>>：
+     *  [
+     *   { "browser": "chrome", "count": 120},
+     *   { "browser": "safari", "count": 50}
+     *  ]
+     */
+    @Select("""
+        SELECT
+            browser,
+            SUM(cnt) AS count
+        FROM
+            t_link_browser_stats
+        WHERE
+            gid = #{param.gid}
+            AND date BETWEEN #{param.startDate} AND #{param.endDate}
+        GROUP BY
+            browser
+        """)
+    List<HashMap<String, Object>> listBrowserStatsByGroup(@Param("param") ShortLinkGroupStatsReqDTO requestParam);
 
 
 }

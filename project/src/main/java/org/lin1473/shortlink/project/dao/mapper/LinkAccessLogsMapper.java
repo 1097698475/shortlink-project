@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.lin1473.shortlink.project.dao.entity.LinkAccessLogsDO;
+import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 
 import java.util.HashMap;
@@ -48,6 +49,39 @@ public interface LinkAccessLogsMapper extends BaseMapper<LinkAccessLogsDO> {
             LIMIT 5
             """)
     List<HashMap<String, Object>> listTopIpByShortLink(@Param("param") ShortLinkStatsReqDTO requestParam);
+
+    /**
+     * 查询分组在指定日期范围内的高频访问 IP（TOP N）
+     *
+     * SQL 功能说明：
+     * - COUNT(ip)：统计每个 IP 的访问次数
+     * - ORDER BY count DESC：按访问次数从高到低排序
+     * - LIMIT 5：取访问频率最高的前 5 个 IP
+     *
+     * @param requestParam 请求参数：gid、startDate、endDate
+     * @return 高频访问 IP 列表，映射成 List<HashMap<String, Object>>长这样：
+     * [
+     *     { "ip" : "1.1.1.1", "count" : "3" },
+     *     { "ip" : "4.4.4.4", "count" : "2" },
+     * ]
+     */
+    @Select("""
+            SELECT
+                ip,
+                COUNT(ip) AS count
+            FROM
+                t_link_access_logs
+            WHERE
+                gid = #{param.gid}
+                AND create_time >= #{param.startDate}
+                AND create_time < DATE_ADD(#{param.endDate}, INTERVAL 1 DAY)
+            GROUP BY
+                ip
+            ORDER BY
+                count DESC
+            LIMIT 5
+            """)
+    List<HashMap<String, Object>> listTopIpByGroup(@Param("param") ShortLinkGroupStatsReqDTO requestParam);
 
     /**
      * 查询指定短链接在指定日期范围内的新老访客数量

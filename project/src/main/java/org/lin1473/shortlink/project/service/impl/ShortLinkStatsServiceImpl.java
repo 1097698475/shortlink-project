@@ -11,6 +11,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import org.lin1473.shortlink.project.dao.entity.*;
 import org.lin1473.shortlink.project.dao.mapper.*;
+import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsAccessRecordReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 import org.lin1473.shortlink.project.dto.resp.*;
@@ -246,7 +247,6 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
             networkStats.add(networkRespDTO);
         });
 
-
         return ShortLinkStatsRespDTO.builder()
                 .pv(totalPv)
                 .uv(totalUv)
@@ -259,6 +259,200 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                 .browserStats(browserStats)
                 .osStats(osStats)
                 .uvTypeStats(uvTypeStats)
+                .deviceStats(deviceStats)
+                .networkStats(networkStats)
+                .build();
+    }
+
+    // 复用oneShortLinkStats
+    // 不需要访客类型
+    @Override
+    public ShortLinkGroupStatsRespDTO groupShortLinkStats(ShortLinkGroupStatsReqDTO requestParam) {
+        // 指定分组的短链接在日期范围内的日粒度统计
+        List<LinkBaseStatsDO> listDayStatsByGroup = linkBaseStatsMapper.listDayStatsByGroup(requestParam);
+        if (CollUtil.isEmpty(listDayStatsByGroup)) {
+            return null;
+        }
+        //  注意：返回List是ShortLinkStatsReqDTO的开始日期到结束日期这之间的所有日期的pv uv uip，
+        //  如果某一天没有访问数据，也要返回0，以便展示每天的折线图
+        List<ShortLinkStatsAccessDailyRespDTO> daily = new ArrayList<>();   // groupShortLinkStats接口需要返回的列表DTO
+        // 构造日期范围列表
+        List<String> rangeDates = DateUtil.rangeToList(
+                        DateUtil.parse(requestParam.getStartDate()),
+                        DateUtil.parse(requestParam.getEndDate()),
+                        DateField.DAY_OF_MONTH
+                ).stream()
+                .map(DateUtil::formatDate)
+                .toList();
+        // 遍历每一天，找数据库返回的数据，没有就补 0
+        rangeDates.forEach(each -> listDayStatsByGroup.stream()
+                .filter(item -> Objects.equals(each, DateUtil.formatDate(item.getDate())))
+                .findFirst()
+                .ifPresentOrElse(item -> {
+                    ShortLinkStatsAccessDailyRespDTO accessDailyRespDTO = ShortLinkStatsAccessDailyRespDTO.builder()
+                            .date(DateUtil.parse(each))     // 每个each都是String，DTO里面是Date类型
+                            .pv(item.getPv())
+                            .uv(item.getUv())
+                            .uip(item.getUip())
+                            .build();
+                    daily.add(accessDailyRespDTO);
+                }, () -> {  // 没有就补0
+                    ShortLinkStatsAccessDailyRespDTO accessDailyRespDTO = ShortLinkStatsAccessDailyRespDTO.builder()
+                            .date(DateUtil.parse(each))
+                            .pv(0)
+                            .uv(0)
+                            .uip(0)
+                            .build();
+                    daily.add(accessDailyRespDTO);
+                }));
+
+        // 已经拿到日粒度统计，把pv uv uip累加，得到指定日期内的分组总量
+        int totalPv = 0, totalUv = 0, totalUip = 0;
+        for (LinkBaseStatsDO stats : listDayStatsByGroup) {
+            totalPv += stats.getPv() != null ? stats.getPv() : 0;
+            totalUv += stats.getUv() != null ? stats.getUv() : 0;
+            totalUip += stats.getUip() != null ? stats.getUip() : 0;
+        }
+
+        // 小时访问详情，根据小时进行分组
+        List<Integer> hourStats = new ArrayList<>();    // groupShortLinkStats接口需要返回的列表DTO
+        List<LinkBaseStatsDO> listHourStatsByGroup = linkBaseStatsMapper.listHourStatsByGroup(requestParam);    // select hour sum(pv) group by hour
+        for (int i = 0; i < 24; i++) {
+            AtomicInteger hour = new AtomicInteger(i);
+            int hourCnt = listHourStatsByGroup.stream()
+                    .filter(each -> Objects.equals(each.getHour(), hour.get()))
+                    .findFirst()
+                    .map(LinkBaseStatsDO::getPv)
+                    .orElse(0);
+            hourStats.add(hourCnt);
+        }
+
+        // 一周访问详情，根据weekday进行分组
+        List<Integer> weekdayStats = new ArrayList<>();     // groupShortLinkStats接口需要返回的列表DTO
+        List<LinkBaseStatsDO> listWeekdayStatsByGroup = linkBaseStatsMapper.listWeekdayStatsByGroup(requestParam);  // select weekday SUM(pv) as pv
+        for (int i = 1; i < 8; i++) {
+            AtomicInteger weekday = new AtomicInteger(i);
+            int weekdayCnt = listWeekdayStatsByGroup.stream()
+                    .filter(each -> Objects.equals(each.getWeekday(), weekday.get()))
+                    .findFirst()
+                    .map(LinkBaseStatsDO::getPv)
+                    .orElse(0);
+            weekdayStats.add(weekdayCnt);
+        }
+
+        // 高频访问IP详情 LinkAccessLogs表会记录每次访问的ip等信息，使用这个日志表计算分组粒度的前5频率的ip
+        List<ShortLinkStatsTopIpRespDTO> topIpStats = new ArrayList<>();        // groupShortLinkStats接口需要返回的列表DTO
+        List<HashMap<String, Object>> listTopIpByShortLink = linkAccessLogsMapper.listTopIpByGroup(requestParam);   //select ip COUNT(ip) AS count，最后映射为Map
+        listTopIpByShortLink.forEach(each -> {
+            ShortLinkStatsTopIpRespDTO statsTopIpRespDTO = ShortLinkStatsTopIpRespDTO.builder()
+                    .ip(each.get("ip").toString())
+                    .cnt(Integer.parseInt(each.get("count").toString()))    // Integer格式
+                    .build();
+            topIpStats.add(statsTopIpRespDTO);
+        });
+
+        // 不需要访客访问类型详情
+
+        /******************************
+         * 以下统计的写法都是一个模版：根据对应功能的字段进行分组group by，并select 功能字段和sum(cnt)，同时计算比率
+         ******************************/
+
+        // 地区访问详情（仅国内），根据省份进行分组
+        List<ShortLinkStatsLocaleCNRespDTO> localeCnStats = new ArrayList<>();      // groupShortLinkStats接口需要返回的列表DTO
+        List<LinkLocaleStatsDO> listedLocaleByGroup = linkLocaleStatsMapper.listLocaleByGroup(requestParam);    // select province SUM(cnt) AS cnt
+        int localeCntSum = listedLocaleByGroup.stream()
+                .mapToInt(LinkLocaleStatsDO::getCnt)
+                .sum();     // 总点击量
+        listedLocaleByGroup.forEach(each -> {
+            double ratio = (double) each.getCnt() / localeCntSum;
+            double actualRatio = Math.round(ratio * 100.0) / 100.0;
+            ShortLinkStatsLocaleCNRespDTO localeCNRespDTO = ShortLinkStatsLocaleCNRespDTO.builder()
+                    .cnt(each.getCnt())
+                    .locale(each.getProvince())
+                    .ratio(actualRatio)
+                    .build();
+            localeCnStats.add(localeCNRespDTO);
+        });
+
+        // 浏览器访问详情，本质上和地区访问详情一样，不过那个是在List<LinkLocaleStatsDO>操作，这个在HashMap操作
+        List<ShortLinkStatsBrowserRespDTO> browserStats = new ArrayList<>();    // groupShortLinkStats接口需要返回的列表DTO
+        List<HashMap<String, Object>> listBrowserStatsByGroup = linkBrowserStatsMapper.listBrowserStatsByGroup(requestParam);
+        int browserSum = listBrowserStatsByGroup.stream()
+                .mapToInt(each -> Integer.parseInt(each.get("count").toString()))
+                .sum();
+        listBrowserStatsByGroup.forEach(each -> {
+            double ratio = (double) Integer.parseInt(each.get("count").toString()) / browserSum;
+            double actualRatio = Math.round(ratio * 100.0) / 100.0;
+            ShortLinkStatsBrowserRespDTO browserRespDTO = ShortLinkStatsBrowserRespDTO.builder()
+                    .cnt(Integer.parseInt(each.get("count").toString()))
+                    .browser(each.get("browser").toString())
+                    .ratio(actualRatio)
+                    .build();
+            browserStats.add(browserRespDTO);
+        });
+
+        // 操作系统访问详情，和浏览器访问详情一样的写法
+        List<ShortLinkStatsOsRespDTO> osStats = new ArrayList<>();      // groupShortLinkStats接口需要返回的列表DTO
+        List<HashMap<String, Object>> listOsStatsBygroup = linkOsStatsMapper.listOsStatsByGroup(requestParam);
+        int osSum = listOsStatsBygroup.stream()
+                .mapToInt(each -> Integer.parseInt(each.get("count").toString()))
+                .sum();
+        listOsStatsBygroup.forEach(each -> {
+            double ratio = (double) Integer.parseInt(each.get("count").toString()) / osSum;
+            double actualRatio = Math.round(ratio * 100.0) / 100.0;
+            ShortLinkStatsOsRespDTO osRespDTO = ShortLinkStatsOsRespDTO.builder()
+                    .cnt(Integer.parseInt(each.get("count").toString()))
+                    .os(each.get("os").toString())
+                    .ratio(actualRatio)
+                    .build();
+            osStats.add(osRespDTO);
+        });
+
+        // 访问设备类型详情，和浏览器访问详情一样的写法
+        List<ShortLinkStatsDeviceRespDTO> deviceStats = new ArrayList<>();  // oneShortLinkStats接口需要返回的列表DTO
+        List<LinkDeviceStatsDO> listDeviceStatsByGroup = linkDeviceStatsMapper.listDeviceStatsByGroup(requestParam);
+        int deviceSum = listDeviceStatsByGroup.stream()
+                .mapToInt(LinkDeviceStatsDO::getCnt)
+                .sum();
+        listDeviceStatsByGroup.forEach(each -> {
+            double ratio = (double) each.getCnt() / deviceSum;
+            double actualRatio = Math.round(ratio * 100.0) / 100.0;
+            ShortLinkStatsDeviceRespDTO deviceRespDTO = ShortLinkStatsDeviceRespDTO.builder()
+                    .cnt(each.getCnt())
+                    .device(each.getDevice())
+                    .ratio(actualRatio)
+                    .build();
+            deviceStats.add(deviceRespDTO);
+        });
+
+        // 访问网络类型详情，和浏览器访问详情一样的写法
+        List<ShortLinkStatsNetworkRespDTO> networkStats = new ArrayList<>();    // oneShortLinkStats接口需要返回的列表DTO
+        List<LinkNetworkStatsDO> listNetworkStatsByGroup = linkNetworkStatsMapper.listNetworkStatsByGroup(requestParam);
+        int networkSum = listNetworkStatsByGroup.stream()
+                .mapToInt(LinkNetworkStatsDO::getCnt)
+                .sum();
+        listNetworkStatsByGroup.forEach(each -> {
+            double ratio = (double) each.getCnt() / networkSum;
+            double actualRatio = Math.round(ratio * 100.0) / 100.0;
+            ShortLinkStatsNetworkRespDTO networkRespDTO = ShortLinkStatsNetworkRespDTO.builder()
+                    .cnt(each.getCnt())
+                    .network(each.getNetwork())
+                    .ratio(actualRatio)
+                    .build();
+            networkStats.add(networkRespDTO);
+        });
+
+        return ShortLinkGroupStatsRespDTO.builder()
+                .pv(totalPv)
+                .uv(totalUv)
+                .uip(totalUip)
+                .daily(daily)
+                .localeCnStats(localeCnStats)
+                .hourStats(hourStats)
+                .topIpStats(topIpStats)
+                .weekdayStats(weekdayStats)
+                .browserStats(browserStats)
+                .osStats(osStats)
                 .deviceStats(deviceStats)
                 .networkStats(networkStats)
                 .build();

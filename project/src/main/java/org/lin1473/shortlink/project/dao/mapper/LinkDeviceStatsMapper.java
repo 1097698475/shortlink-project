@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.lin1473.shortlink.project.dao.entity.LinkDeviceStatsDO;
+import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
 
 import java.util.List;
@@ -81,6 +82,32 @@ public interface LinkDeviceStatsMapper extends BaseMapper<LinkDeviceStatsDO> {
         """)
     List<LinkDeviceStatsDO> listDeviceStatsByShortLink(@Param("param") ShortLinkStatsReqDTO requestParam);
 
-
+    /**
+     * 查询指定分组在指定日期范围内的访问设备统计
+     *
+     * SQL 功能说明：
+     * - SUM(cnt)：对相同访问设备的访问次数进行累加
+     * - GROUP BY device：按访问设备维度进行聚合
+     * - 用于分析不同设备类型（如 PC / Mobile 等）的访问分布情况
+     *
+     * @param requestParam 请求参数：gid、startDate、endDate
+     * @return 访问设备统计列表，每条记录包含：
+     *         - device：访问设备类型
+     *         - cnt：访问次数
+     *         - 其他字段为null（返回的是DO实体）
+     */
+    @Select("""
+        SELECT
+            device,
+            SUM(cnt) AS cnt
+        FROM
+            t_link_device_stats
+        WHERE
+            gid = #{param.gid}
+            AND date BETWEEN #{param.startDate} AND #{param.endDate}
+        GROUP BY
+            device
+        """)
+    List<LinkDeviceStatsDO> listDeviceStatsByGroup(@Param("param") ShortLinkGroupStatsReqDTO requestParam);
 }
 
