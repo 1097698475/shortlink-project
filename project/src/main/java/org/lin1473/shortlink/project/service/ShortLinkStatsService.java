@@ -2,6 +2,7 @@ package org.lin1473.shortlink.project.service;
 
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsAccessRecordReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsAccessRecordReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
@@ -41,5 +42,13 @@ public interface ShortLinkStatsService {
      */
     IPage<ShortLinkStatsAccessRecordRespDTO> oneShortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam);
 
+    /**
+     * 获取分组内短链接指定时间内的访问记录数据
+     * 分页获取，前端展示这些短链接的访问记录列表
+     *
+     * @param requestParam 获取分组内短链接监控访问记录数据入参
+     * @return 分组内访问记录监控数据
+     */
+    IPage<ShortLinkStatsAccessRecordRespDTO> groupShortLinkStatsAccessRecord(ShortLinkGroupStatsAccessRecordReqDTO requestParam);
 }
 

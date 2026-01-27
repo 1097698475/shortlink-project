@@ -181,4 +181,46 @@ public interface LinkAccessLogsMapper extends BaseMapper<LinkAccessLogsDO> {
             @Param("endDate") String endDate,
             @Param("userList") List<String> userList
     );
+
+    /**
+     * 查询分组内短链接在指定日期 userList 是新访客/老访客
+     * 由于传入的userList就已经在start和end之间访问过这个短链接，
+     * 所以还需要根据userList查全表，判读每个user的第一次访问时间是否在指定日期内
+     * 如果在，就是新用户，否则一定是老用户，无需判断第一次访问时间是否<startDate
+     *
+     * @param gid   分组标识
+     * @param startDate     起始日期
+     * @param endDate       结束日期
+     * @param userList      去重的uvCookie列表
+     * @return 返回格式如下：
+     * {
+     *     {"user": "u1", "uvType": "新访客" },
+     *     {"user": "u2", "uvType": "老访客"},
+     *     ...
+     * }
+     */
+    @Select("""
+            <script>
+            SELECT
+                user,
+                CASE
+                    WHEN MIN(DATE(create_time)) BETWEEN #{startDate} AND #{endDate}
+                    THEN '新访客'
+                    ELSE '老访客'
+                END AS uvType
+            FROM t_link_access_logs
+            WHERE gid = #{gid}
+                AND user IN
+                <foreach collection="userList" item="item" open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+            GROUP BY user
+            </script>
+        """)
+    List<Map<String, Object>> selectGroupUvTypeByUsers(
+            @Param("gid") String gid,
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate,
+            @Param("userList") List<String> userList
+    );
 }

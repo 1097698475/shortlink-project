@@ -11,6 +11,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import org.lin1473.shortlink.project.dao.entity.*;
 import org.lin1473.shortlink.project.dao.mapper.*;
+import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsAccessRecordReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsAccessRecordReqDTO;
 import org.lin1473.shortlink.project.dto.req.ShortLinkStatsReqDTO;
@@ -476,7 +477,8 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
                 linkAccessLogsMapper.selectPage(requestParam, queryWrapper);
 
         // ③ DO → RespDTO
-        // 为什么碰巧能转换？如果是LinkBaseStatsDO还能转换吗
+        // 为什么碰巧能转换？LinkAccessLogsDO没有uvType字段，但是ShortLinkStatsAccessRecordRespDTO有
+        // 因为`BeanUtil.toBean` 只拷贝「同名、同类型（或可转换）」字段，目标对象里多出来的字段（如 `uvType`）不会影响转换，只是保持默认值（`null`）
         IPage<ShortLinkStatsAccessRecordRespDTO> respPage =
                 pageResult.convert(each ->
                         BeanUtil.toBean(each, ShortLinkStatsAccessRecordRespDTO.class)
@@ -505,6 +507,68 @@ public class ShortLinkStatsServiceImpl implements ShortLinkStatsService {
             Map<String, String> uvTypeMap = uvTypeList.stream()
                     .collect(Collectors.toMap(
                        item -> (String) item.get("user"),
+                            item-> (String) item.get("uvType")
+                    ));
+
+            // ⑤ 回填 uvType
+            // 逻辑应该是：uvTypeList是一个去重的访客类型列表，每个each.getUser()匹配到uvTypeList的item.get("user")，然后拿出它的访客类型
+            // 再添加到respPage分页对象的uvType对应字段。
+            // 一个user/uvCookie是不是新访客，是相对于这个requestParam日期的。如果在这个日期内第一次访问是新访客，那么就算有多次访问，之后的记录也记他为新访客。是静态的
+            respPage.getRecords().forEach(each -> {
+                String uvType = uvTypeMap.getOrDefault(each.getUser(), "老访客");   // 查询key
+                each.setUvType(uvType);
+            });
+        }
+
+        return respPage;
+    }
+
+    @Override
+    public IPage<ShortLinkStatsAccessRecordRespDTO> groupShortLinkStatsAccessRecord(ShortLinkGroupStatsAccessRecordReqDTO requestParam) {
+        // ① 构造分页查询条件
+        LambdaQueryWrapper<LinkAccessLogsDO> queryWrapper =
+                Wrappers.lambdaQuery(LinkAccessLogsDO.class)
+                        .eq(LinkAccessLogsDO::getGid, requestParam.getGid())
+                        .ge(LinkAccessLogsDO::getCreateTime, requestParam.getStartDate())   // 日期在这之中
+                        .le(LinkAccessLogsDO::getCreateTime, requestParam.getEndDate() + " 23:59:59")     // createTime精确到时分秒，但传入参数没有，如果不添加时分秒，会自动转化为create_time <= '2026-01-18 00:00:00'，查不到当天的数据
+                        .eq(LinkAccessLogsDO::getDelFlag, 0)
+                        .orderByDesc(LinkAccessLogsDO::getCreateTime);
+
+        // ② 分页查询（重点：ReqDTO 本身就是 Page，里面有pageNo和pageSize）
+        // 将分页参数传入分页拦截器，然后selectPage执行sql语句，结果封装成IPage
+        IPage<LinkAccessLogsDO> pageResult =
+                linkAccessLogsMapper.selectPage(requestParam, queryWrapper);
+
+        // ③ DO → RespDTO
+        // 为什么碰巧能转换？LinkAccessLogsDO没有uvType字段，但是ShortLinkStatsAccessRecordRespDTO有
+        // 因为`BeanUtil.toBean` 只拷贝「同名、同类型（或可转换）」字段，目标对象里多出来的字段（如 `uvType`）不会影响转换，只是保持默认值（`null`）
+        IPage<ShortLinkStatsAccessRecordRespDTO> respPage =
+                pageResult.convert(each ->
+                        BeanUtil.toBean(each, ShortLinkStatsAccessRecordRespDTO.class)
+                );
+
+        // ④ 收集 uvCookie，selectUvTypeByUsers需要的参数
+        List<String> userList = respPage.getRecords().stream()
+                .map(ShortLinkStatsAccessRecordRespDTO::getUser)
+                .distinct()     // 去重
+                .toList();
+
+        // 判空
+        if (!CollUtil.isEmpty(userList)) {
+
+            // 调用mapper接口，根据uvCookie（userList）判断访客类型
+            List<Map<String, Object>> uvTypeList =
+                    linkAccessLogsMapper.selectGroupUvTypeByUsers(
+                            requestParam.getGid(),
+                            requestParam.getStartDate(),
+                            requestParam.getEndDate(),
+                            userList
+                    );
+
+            // 转为Map，比uvTypeList.stream().filter匹配快很多（respPage时间复杂度o(M), uvTypeList去重时间复杂度o(N)，一共o(M*N））
+            Map<String, String> uvTypeMap = uvTypeList.stream()
+                    .collect(Collectors.toMap(
+                            item -> (String) item.get("user"),
                             item-> (String) item.get("uvType")
                     ));
 

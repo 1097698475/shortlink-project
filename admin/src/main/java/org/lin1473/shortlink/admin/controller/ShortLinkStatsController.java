@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import lombok.RequiredArgsConstructor;
 import org.lin1473.shortlink.admin.common.convention.result.Result;
 import org.lin1473.shortlink.admin.remote.ShortLinkRemoteService;
+import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkGroupStatsAccessRecordReqDTO;
 import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkGroupStatsReqDTO;
 import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkStatsAccessRecordReqDTO;
 import org.lin1473.shortlink.admin.remote.dto.req.ShortLinkStatsReqDTO;
@@ -51,5 +52,14 @@ public class ShortLinkStatsController {
     @GetMapping("/api/short-link/admin/v1/stats/access-record")
     public Result<IPage<ShortLinkStatsAccessRecordRespDTO>> oneShortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
         return shortLinkRemoteService.oneShortLinkStatsAccessRecord(requestParam);
+    }
+
+    /**
+     * 分组内所有短链接指定时间内的访问记录数据
+     * 前端用分页列表显示这些链接的访问记录，本质就是把t_link_access_logs日志表的数据展示出来
+     */
+    @GetMapping("/api/short-link/admin/v1/stats/access-record/group")
+    public Result<IPage<ShortLinkStatsAccessRecordRespDTO>> groupShortLinkStatsAccessRecord(ShortLinkGroupStatsAccessRecordReqDTO requestParam) {
+        return shortLinkRemoteService.groupShortLinkStatsAccessRecord(requestParam);
     }
 }
