@@ -49,7 +49,7 @@ public class ShortLinkStatsController {
      * 前端用分页列表显示这条短链接的访问记录，本质就是把t_link_access_logs日志表的数据展示出来
      */
     @GetMapping("/api/short-link/admin/v1/stats/access-record")
-    public Result<IPage<ShortLinkStatsAccessRecordRespDTO>> shortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
+    public Result<IPage<ShortLinkStatsAccessRecordRespDTO>> oneShortLinkStatsAccessRecord(ShortLinkStatsAccessRecordReqDTO requestParam) {
         return shortLinkRemoteService.oneShortLinkStatsAccessRecord(requestParam);
     }
 }
